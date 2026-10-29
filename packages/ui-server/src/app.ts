@@ -31,14 +31,28 @@ export interface Envelope<T> {
   data: T
 }
 
-/** 宿主扩展：返回 `null` 表示不处理，交给页面引擎继续匹配。 */
+/**
+ * 宿主扩展：返回 `null` 表示不处理，交给页面引擎继续匹配。
+ *
+ * 允许返回 Promise：模型调用这类下游 I/O 是异步的，扩展层不该为了同步签名
+ * 去阻塞事件循环；内核统一 await，错误照旧走错误信封。
+ */
+export interface ExtensionUser {
+  username?: string
+  permissions: string[]
+}
+
+export interface ExtensionRequest {
+  method: string
+  path: string
+  query: URLSearchParams
+  body: unknown
+  /** 当前登录用户；公开路径为 null。扩展自己按权限码收紧。 */
+  user: ExtensionUser | null
+}
+
 export interface ApiExtension {
-  handle(request: {
-    method: string
-    path: string
-    query: URLSearchParams
-    body: unknown
-  }): unknown | null
+  handle(request: ExtensionRequest): unknown | Promise<unknown> | null
 }
 
 export interface AppDeps {
@@ -54,6 +68,11 @@ export interface AppDeps {
   staticDir?: string | undefined
   /** 页面配置写权限码，缺省 `system:page:config`。 */
   schemaWritePermission?: string | undefined
+  /**
+   * 免登录读取的扩展路径（例如外观主题要在登录页之前生效）。
+   * 只放前言/外观这类不含业务数据的 GET 接口，其余仍走令牌。
+   */
+  publicPaths?: string[] | undefined
 }
 
 type PageDataOf = Parameters<PageStore['write']>[0]
@@ -71,6 +90,14 @@ function bearer(header: string | undefined): string | null {
   if (!header) return null
   const match = header.match(/^Bearer\s+(.+)$/i)
   return match?.[1]?.trim() ?? null
+}
+
+/**
+ * 扩展的「没处理」既有 `null`，也有各模块自己的 `UNHANDLED` 哨兵（Symbol）。
+ * 两者都表示继续往后找，不能当成已处理，否则会把 Symbol 序列化成空响应。
+ */
+function unhandled(result: unknown): boolean {
+  return result === null || result === undefined || typeof result === 'symbol'
 }
 
 function statusOf(error: unknown): number {
@@ -126,7 +153,7 @@ export function createApp(deps: AppDeps): CreatedApp {
 
     // 页面清单公开只读：宿主要在建路由之前知道有哪些页面。
     // 业务数据接口仍然逐个校验令牌。
-    const isPublic = isPublicPath(path, method)
+    const isPublic = isPublicPath(path, method) || (method === 'GET' && (deps.publicPaths ?? []).includes(path))
     const user = isPublic ? null : authenticate(token)
     if (!isPublic && !user) {
       return c.json(envelope(null, 401, '登录已失效，请重新登录'), 401)
@@ -158,8 +185,14 @@ export function createApp(deps: AppDeps): CreatedApp {
       if (handled !== ENGINE_UNHANDLED) return c.json(envelope(handled))
 
       for (const extension of extensions) {
-        const result = extension.handle({ method, path, query: url.searchParams, body })
-        if (result !== null) return c.json(envelope(result))
+        const result = await extension.handle({
+          method,
+          path,
+          query: url.searchParams,
+          body,
+          user: user ? { username: user.username, permissions: user.permissions } : null,
+        })
+        if (!unhandled(result)) return c.json(envelope(result))
       }
     } catch (error) {
       const { status, message } = failure(error)

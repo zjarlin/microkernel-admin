@@ -119,6 +119,7 @@ packages/                     # 可被别的项目依赖的工作区包
   data-page-element/          # Element Plus 适配：表格/查询栏/表单弹窗/左树
   ui-server/                  # Hono 外壳 + zod 配置 + node:sqlite 存储
   app-frame/                  # 三栏布局壳 + layout 面板服务（dsh ui-layout 的 Vue 移植）
+  scada-dsl/                  # 组态指令集（绘图 + 排版 + 画布），无 UI 依赖，可单独发布
 src/
   kernel/                     # 与业务无关的微内核
   plugins/
@@ -126,7 +127,9 @@ src/
     system/                   # 若依式系统管理模块
     monitor/                  # 系统监控模块
     scada/                    # 组态画布工作台
-    pages/                    # 把后端登记的页面变成路由与菜单
+    ai/                       # AI 插件：提示词库、画布指令生成、页面/主题生成
+    theme/                    # 外观主题：颜色/圆角/密度的可视化配置
+    pages/                    # 把后端登记的页面变成路由与菜单（含页面工厂）
   schema/                     # 本仓库的页面 schema 基线 + 种子数据
   layouts/                    # 管理后台壳
   router/                     # 内核启动、路由编译、登录/权限守卫
@@ -199,6 +202,8 @@ pnpm build:packages     # packages/{data-page,ui-server} → dist/*.{js,d.ts}
 - 用户、角色、菜单、部门、岗位、字典、参数、公告、定时任务、设备台账全部由 schema 驱动：
   查询、分页、左树筛选（含下级）、表单校验、唯一性、删除保护、跨资源取值都在同一层实现。
 - 在线用户、服务监控、缓存监控；组态画布工作台。
+- AI 插件：提示词即配置（画布绘制/排版、页面 schema、外观 token），一条自然语言指令直接改画布；
+  另有「页面工厂」把原型描述变成可上线页面、「外观主题」可视化调色并支持 AI 生成。见 [`docs/AI-PLUGIN.md`](docs/AI-PLUGIN.md)。
 - 插件中心：依赖拓扑、启停、运行期错误面板、服务与命令清单。
 - 工作台：指标卡、趋势图、部门分布、公告、最近操作、插件槽位注入的健康卡片。
 

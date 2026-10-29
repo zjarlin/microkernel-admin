@@ -2,7 +2,7 @@
 //
 // 与 UI 无关，只依赖 SQLite 与共享的 scada 类型/图元库，
 // 因此可以整体搬到别的项目里（换存储只改 kv 注入）。
-import type { KeyValueStore } from '@addzero/ui-server'
+import type { ExtensionRequest, KeyValueStore } from '@addzero/ui-server'
 import {
   createEmptyScadaDocument,
   parseScadaDocument,
@@ -49,12 +49,11 @@ export interface ScadaServiceOptions {
 }
 
 export interface ScadaService {
-  handle(request: {
-    method: string
-    path: string
-    query: URLSearchParams
-    body: Record<string, unknown>
-  }): unknown | typeof UNHANDLED
+  /** 图元库只读视图：AI 插件据此生成指令，保证「能画的」和「能说的」一致。 */
+  readonly symbols: ScadaSymbolDefinition[]
+  /** 点位目录只读视图（同上）。 */
+  readonly tags: ScadaTagOption[]
+  handle(request: ExtensionRequest): unknown | typeof UNHANDLED
 }
 
 export const UNHANDLED = Symbol('scada-unhandled')
@@ -174,6 +173,12 @@ export function createScadaService(options: ScadaServiceOptions): ScadaService {
   }
 
   return {
+    get symbols() {
+      return options.symbols
+    },
+    get tags() {
+      return options.tags
+    },
     handle(request): unknown | typeof UNHANDLED {
       const { method, path, query } = request
       // GET 没有请求体：统一按空对象处理，避免扩展层各写一遍空值判断。

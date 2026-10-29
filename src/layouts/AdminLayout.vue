@@ -16,6 +16,7 @@ import TagsView from '@/components/shell/TagsView.vue'
 import LayoutSettingsPanel from '@/components/shell/LayoutSettingsPanel.vue'
 import { RIGHT_PANEL_HOST_ID, appLayout, closeRightPanel, openRightPanel, useRightPanel } from '@/shared/shell'
 import { useTabsStore } from '@/stores/tabs'
+import { applyTheme, useTheme } from '@/shared/theme'
 
 const route = useRoute()
 const router = useRouter()
@@ -93,8 +94,12 @@ async function logout(): Promise<void> {
   await router.replace('/login')
 }
 
+const theme = useTheme()
+
 function toggleTheme(): void {
   ui.toggleDark()
+  // 深色模式不使用主题里的背景/文字色，但品牌色与圆角密度照旧生效。
+  applyTheme(theme.value, ui.dark)
 }
 </script>
 

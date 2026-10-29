@@ -9,6 +9,8 @@ import { seedPages } from '../src/schema/seed.ts'
 import { createPageRegistry } from '../src/schema/registry.ts'
 import type { SchemaStateStore } from '@addzero/data-page'
 import { createScadaPlugin } from './plugins/scada/index.ts'
+import { createAiPlugin } from './plugins/ai/index.ts'
+import { createThemePlugin } from './plugins/theme/index.ts'
 
 export interface HostDeps {
   pages: PageStore
@@ -26,13 +28,18 @@ export interface HostApp extends CreatedApp {
 
 export function createApp(deps: HostDeps): HostApp {
   const scada = createScadaPlugin({ kv: deps.kv })
+  // AI 插件依赖组态插件的图元/变量清单（同一份能力），不自己再读一份 JSON。
+  const ai = createAiPlugin({ kv: deps.kv, symbols: scada.symbols, tags: scada.tags })
+  const theme = createThemePlugin({ kv: deps.kv })
 
   const created = createUiApp({
     pages: deps.pages,
     runtime: deps.runtime,
     registry: createPageRegistry(deps.schemas),
     seed: seedPages,
-    extensions: [scada],
+    extensions: [scada, ai, theme],
+    // 外观要在登录页就生效，因此主题读取免登录；写入仍要权限码。
+    publicPaths: ['/ui/theme'],
     ...(deps.corsOrigins ? { corsOrigins: deps.corsOrigins } : {}),
     ...(deps.staticDir ? { staticDir: deps.staticDir } : {}),
   })

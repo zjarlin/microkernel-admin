@@ -17,6 +17,7 @@ COPY packages/data-page/package.json packages/data-page/
 COPY packages/data-page-element/package.json packages/data-page-element/
 COPY packages/ui-server/package.json packages/ui-server/
 COPY packages/app-frame/package.json packages/app-frame/
+COPY packages/scada-dsl/package.json packages/scada-dsl/
 RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm build:packages && pnpm build

@@ -9,6 +9,7 @@ import { bootKernel, installPluginRoutes, router } from './router'
 import { createRuntime, RUNTIME_KEY } from './shared/service'
 import { http } from './shared/api'
 import { useUiStore } from './stores/ui'
+import { applyTheme, loadTheme } from './shared/theme'
 import 'element-plus/dist/index.css'
 import 'element-plus/theme-chalk/dark/css-vars.css'
 import 'nprogress/nprogress.css'
@@ -36,6 +37,8 @@ async function bootstrap(): Promise<void> {
   app.use(ElementPlus, { locale: zhCn as never })
   for (const [name, component] of Object.entries(ElementPlusIconsVue)) app.component(name, component)
   useUiStore().apply()
+  // 外观是后端配置：挂载前拉一次并写成 CSS 变量，避免先闪一下默认配色。
+  applyTheme(await loadTheme(http), document.documentElement.classList.contains('dark'))
   await router.isReady()
   app.mount('#app')
 }

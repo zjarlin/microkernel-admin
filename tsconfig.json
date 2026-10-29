@@ -21,6 +21,9 @@
     },
     {
       "path": "./packages/app-frame"
+    },
+    {
+      "path": "./packages/scada-dsl"
     }
   ]
 }

@@ -25,6 +25,8 @@ import ScadaInspector from '@/components/scada/ScadaInspector.vue'
 import ScadaSymbolPalette from '@/components/scada/ScadaSymbolPalette.vue'
 import ScadaTagPicker from '@/components/scada/ScadaTagPicker.vue'
 import { RIGHT_PANEL_HOST_ID, closeRightPanel, openRightPanel, updateRightPanel, useRightPanel } from '@/shared/shell'
+import { getKernel } from '@/router'
+import { attachScadaWorkbench } from '../workbench'
 
 const rightPanel = useRightPanel()
 
@@ -208,6 +210,11 @@ const inspectorHint = computed(() => {
 
 const inspectorOpen = computed(() => rightPanel.active?.id === INSPECTOR_PANEL_ID)
 
+/** 右栏页签：属性 / AI 助手（AI 页签来自 ai 插件贡献的槽位，插件禁用即消失）。 */
+const panelTab = ref<'inspector' | 'ai'>('inspector')
+const assistantSlots = computed(() => getKernel()?.slotContributions('scada:assistant') ?? [])
+const detachWorkbench = ref<null | (() => void)>(null)
+
 /** 右栏被关掉后的唯一重开入口（画布工具条上的「属性」）。 */
 function toggleInspector(): void {
   if (inspectorOpen.value) {
@@ -222,14 +229,28 @@ watch(inspectorHint, (hint) => updateRightPanel(INSPECTOR_PANEL_ID, { hint }))
 
 onMounted(() => {
   void refreshAll()
+  // 把画布的读写能力挂到公开句柄上：AI 插件（以及将来任何插件）只通过它协作。
+  detachWorkbench.value = attachScadaWorkbench({
+    readDocument: () => structuredClone(document.value),
+    readSymbols: () => symbols.value,
+    readTags: () => tagOptions.value,
+    readSelection: () => [...selectedIds.value],
+    writeDocument: (next) => {
+      document.value = next
+      selectedIds.value = []
+      dirty.value = true
+    },
+  })
   // 属性面板进外壳右栏：画布只保留「资源轨 + 画布」两列，宽度由布局服务统一求解。
-  openRightPanel({ id: INSPECTOR_PANEL_ID, title: '图元属性', hint: inspectorHint.value })
+  openRightPanel({ id: INSPECTOR_PANEL_ID, title: '画布面板', hint: inspectorHint.value })
   void nextTick(() => {
     inspectorReady.value = window.document.getElementById(RIGHT_PANEL_HOST_ID) !== null
   })
 })
 
 onBeforeUnmount(() => {
+  detachWorkbench.value?.()
+  detachWorkbench.value = null
   closeRightPanel(INSPECTOR_PANEL_ID)
 })
 
@@ -641,23 +662,30 @@ function exportSvg(): void {
         </div>
       </section>
 
-      <!-- 属性面板投到外壳右栏：与布局服务共用一条轨道，可拖宽、可全屏。 -->
+      <!-- 右栏内容投到外壳面板：属性与 AI 助手同处一条轨道，可拖宽、可全屏。 -->
       <Teleport v-if="inspectorReady" :to="`#${RIGHT_PANEL_HOST_ID}`">
-        <ScadaInspector
-          :document="document"
-          :widget="selectedWidget"
-          :symbol="selectedSymbol"
-          :tag-by-id="tagById"
-          :selected-count="selectedIds.length"
-          @update-widget="dirty = true"
-          @update-canvas="dirty = true"
-          @pick-tag="pickTag"
-          @clear-binding="clearBinding"
-          @delete="deleteSelected"
-          @duplicate="duplicateSelected"
-          @rotate="rotateSelected"
-          @toggle-lock="toggleLock"
-        />
+        <el-tabs v-model="panelTab" class="scada-panel-tabs">
+          <el-tab-pane label="属性" name="inspector">
+            <ScadaInspector
+              :document="document"
+              :widget="selectedWidget"
+              :symbol="selectedSymbol"
+              :tag-by-id="tagById"
+              :selected-count="selectedIds.length"
+              @update-widget="dirty = true"
+              @update-canvas="dirty = true"
+              @pick-tag="pickTag"
+              @clear-binding="clearBinding"
+              @delete="deleteSelected"
+              @duplicate="duplicateSelected"
+              @rotate="rotateSelected"
+              @toggle-lock="toggleLock"
+            />
+          </el-tab-pane>
+          <el-tab-pane v-if="assistantSlots.length" label="AI 助手" name="ai">
+            <component :is="slot.component" v-for="slot in assistantSlots" :key="slot.id" />
+          </el-tab-pane>
+        </el-tabs>
       </Teleport>
     </div>
 
@@ -698,6 +726,8 @@ function exportSvg(): void {
   display: flex; align-items: flex-start; justify-content: center;
   max-height: 72vh; overflow: auto; border-radius: 10px;
 }
+.scada-panel-tabs { padding: 0 12px 12px; }
+.scada-panel-tabs :deep(.el-tabs__header) { margin-bottom: 10px; position: sticky; top: 0; background: var(--surface); z-index: 1; }
 @media (max-width: 1280px) { .scada-layout { grid-template-columns: 220px minmax(0, 1fr); } }
 @media (max-width: 900px) { .scada-layout { grid-template-columns: 1fr; } }
 </style>

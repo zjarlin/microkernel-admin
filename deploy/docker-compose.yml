@@ -21,5 +21,11 @@ services:
       STATIC_DIR: /app/dist
       SCHEMA_WRITE_PERMISSION: ${SCHEMA_WRITE_PERMISSION:-system:page:config}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
+      # AI 网关：宿主机上的 sub2api，容器内经 host-gateway 访问（不写死内网 IP）。
+      AI_BASE_URL: ${AI_BASE_URL:-http://host.docker.internal:18080}
+      AI_MODEL: ${AI_MODEL:-ds}
+      AI_API_KEY: ${AI_API_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ${MICRO_ADMIN_DATA_DIR:?MICRO_ADMIN_DATA_DIR is required}:/app/.data

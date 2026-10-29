@@ -23,6 +23,25 @@ export const pagesPlugin: PluginDefinition = {
   requires: ['core-admin'],
   defaultEnabled: true,
   async setup(ctx) {
+    // 页面工厂：原型 → schema → 上线，唯一入口（不与「AI 工作台」重复）。
+    ctx.routes.add({
+      name: 'page-studio',
+      path: '/pages/studio',
+      component: () => import('./PageStudioPage.vue'),
+      title: '页面工厂',
+      permission: 'system:page:config',
+      meta: { icon: 'Grid', group: '系统工具' },
+    })
+    ctx.menus.add({
+      id: 'page-studio',
+      title: '页面工厂',
+      path: '/pages/studio',
+      icon: 'Grid',
+      group: '系统工具',
+      order: 92,
+      permission: 'system:page:config',
+    })
+
     let pages: PageSchemaPayload[] = []
     try {
       pages = await ctx.http.request<PageSchemaPayload[]>('/ui/pages')
