@@ -2,13 +2,8 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 export const useUiStore = defineStore('ui', () => {
-  const collapsed = ref(localStorage.getItem('micro-admin.sidebar') === 'collapsed')
+  // 侧栏收起/宽度已由 @addzero/app-frame 的布局服务管理，这里只留主题。
   const dark = ref(localStorage.getItem('micro-admin.dark') === '1')
-
-  function toggleSidebar(): void {
-    collapsed.value = !collapsed.value
-    localStorage.setItem('micro-admin.sidebar', collapsed.value ? 'collapsed' : 'expanded')
-  }
 
   function toggleDark(): void {
     dark.value = !dark.value
@@ -20,5 +15,5 @@ export const useUiStore = defineStore('ui', () => {
     document.documentElement.classList.toggle('dark', dark.value)
   }
 
-  return { collapsed, dark, toggleSidebar, toggleDark, apply }
+  return { dark, toggleDark, apply }
 })

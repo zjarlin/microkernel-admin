@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import {
-  ArrowLeftBold, ArrowRightBold, Bell, Expand, Fold, Grid, Moon, Search, Sunny, SwitchButton,
+  ArrowLeftBold, ArrowRightBold, Bell, Fold, Grid, Moon, Search, Sunny, SwitchButton,
 } from '@element-plus/icons-vue'
 import { filterByPermission, type MenuContribution } from '@/kernel'
 import { getKernel } from '@/router'
@@ -11,11 +11,23 @@ import { useSessionStore } from '@/stores/session'
 import { useKernelStore } from '@/stores/kernel'
 import { useUiStore } from '@/stores/ui'
 import { initialsOf } from '@/shared/format'
+import { AppFrame, createLayout } from '@addzero/app-frame'
 
 const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 const ui = useUiStore()
+
+// 三栏框架：几何与面板导航由 @addzero/app-frame 持有（与 dsh 的 ctx.layout 同形），
+// 侧栏宽度/收起、右栏宽度都持久化在浏览器里，页面只声明「要不要右栏」。
+const layout = createLayout({
+  storageKey: 'micro-admin.layout',
+  storage: {
+    read: () => localStorage.getItem('micro-admin.layout'),
+    write: (value) => localStorage.setItem('micro-admin.layout', value),
+  },
+})
+
 const kernelStore = useKernelStore()
 const booted = ref(true)
 const quickSearch = ref('')
@@ -68,12 +80,13 @@ function toggleTheme(): void {
 </script>
 
 <template>
-  <div class="admin-shell" :class="{ 'is-collapsed': ui.collapsed }">
-    <aside class="sidebar">
+  <AppFrame :layout="layout">
+    <template #sidebar="{ collapsed, toggle }">
+      <aside class="sidebar" :class="{ 'is-collapsed': collapsed }">
       <div class="sidebar-head">
-        <div class="logo">MA</div>
-        <div v-show="!ui.collapsed" class="logo-text">
-          <strong>Micro Admin</strong>
+        <div class="logo">MK</div>
+        <div v-show="!collapsed" class="logo-text">
+          <strong>Micro Kernel</strong>
           <span>微内核控制台</span>
         </div>
       </div>
@@ -81,18 +94,18 @@ function toggleTheme(): void {
       <el-scrollbar class="sidebar-scroll">
         <nav class="menu-nav" aria-label="主导航">
           <section v-for="group in filteredGroups" :key="group.name" class="menu-group">
-            <p v-show="!ui.collapsed" class="menu-group-title">{{ group.name }}</p>
+            <p v-show="!collapsed" class="menu-group-title">{{ group.name }}</p>
             <router-link
               v-for="item in group.items"
               :key="item.id"
               :to="item.path"
               class="menu-item"
               :class="{ active: activeMenu === item.path }"
-              :title="ui.collapsed ? item.title : undefined"
+              :title="collapsed ? item.title : undefined"
             >
               <el-icon :size="18"><component :is="item.icon ?? 'Menu'" /></el-icon>
-              <span v-show="!ui.collapsed" class="menu-label">{{ item.title }}</span>
-              <span v-if="item.badge && !ui.collapsed" class="menu-badge">{{ item.badge }}</span>
+              <span v-show="!collapsed" class="menu-label">{{ item.title }}</span>
+              <span v-if="item.badge && !collapsed" class="menu-badge">{{ item.badge }}</span>
             </router-link>
           </section>
           <p v-if="filteredGroups.length === 0" class="menu-empty">没有匹配的菜单</p>
@@ -100,18 +113,20 @@ function toggleTheme(): void {
       </el-scrollbar>
 
       <div class="sidebar-foot">
-        <button class="collapse-button" type="button" @click="ui.toggleSidebar">
-          <el-icon><ArrowRightBold v-if="ui.collapsed" /><ArrowLeftBold v-else /></el-icon>
-          <span v-show="!ui.collapsed">收起侧栏</span>
+        <button class="collapse-button" type="button" @click="toggle">
+          <el-icon><ArrowRightBold v-if="collapsed" /><ArrowLeftBold v-else /></el-icon>
+          <span v-show="!collapsed">收起侧栏</span>
         </button>
       </div>
-    </aside>
+      </aside>
+    </template>
 
+    <template #default="{ toggleSidebar: toggle }">
     <div class="main-area">
       <header class="topbar">
         <div class="topbar-left">
-          <el-button circle text @click="ui.toggleSidebar">
-            <el-icon :size="18"><Expand v-if="ui.collapsed" /><Fold v-else /></el-icon>
+          <el-button circle text @click="toggle">
+            <el-icon :size="18"><Fold /></el-icon>
           </el-button>
           <div class="breadcrumb">
             <span>控制台</span>
@@ -168,15 +183,20 @@ function toggleTheme(): void {
         </router-view>
       </main>
     </div>
-  </div>
+    </template>
+
+    <!-- 右栏宿主：页面用 Teleport 把检查器/属性面板投进来，布局服务决定是否占轨道。 -->
+    <template #rightbar>
+      <div id="app-frame-rightbar-host" class="app-frame-rightbar-host"></div>
+    </template>
+  </AppFrame>
 </template>
 
 <style scoped>
-.admin-shell { min-height: 100vh; display: flex; background: var(--app-bg); color: var(--app-text); }
-.sidebar { width: 248px; flex: 0 0 248px; background: #0f172a; color: #cbd5e1; display: flex; flex-direction: column; transition: width .22s ease, flex-basis .22s ease; position: sticky; top: 0; height: 100vh; z-index: 20; }
-.is-collapsed .sidebar { width: 76px; flex-basis: 76px; }
+/* 宽度由 @addzero/app-frame 的列求解决定，这里只负责把内容填满所在轨道。 */
+.sidebar { width: 100%; height: 100vh; background: #0f172a; color: #cbd5e1; display: flex; flex-direction: column; position: sticky; top: 0; z-index: 20; }
 .sidebar-head { height: 76px; display: flex; align-items: center; gap: 12px; padding: 0 20px; border-bottom: 1px solid rgba(148,163,184,.12); }
-.is-collapsed .sidebar-head { padding: 0 16px; justify-content: center; }
+.sidebar.is-collapsed .sidebar-head { padding: 0 12px; justify-content: center; }
 .logo { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: linear-gradient(135deg, #3b82f6, #22d3ee); color: #08111d; font-weight: 900; flex: 0 0 38px; }
 .logo-text { display: flex; flex-direction: column; line-height: 1.25; }
 .logo-text strong { color: #f8fafc; font-size: 14px; letter-spacing: .01em; }
@@ -190,7 +210,7 @@ function toggleTheme(): void {
 .menu-item:hover { background: rgba(148,163,184,.09); color: #f1f5f9; }
 .menu-item.active { background: linear-gradient(90deg, rgba(59,130,246,.22), rgba(34,211,238,.07)); color: #f8fafc; }
 .menu-item.active::before { content: ''; position: absolute; left: 0; top: 11px; bottom: 11px; width: 2px; border-radius: 2px; background: #38bdf8; }
-.is-collapsed .menu-item { justify-content: center; padding: 0; }
+.sidebar.is-collapsed .menu-item { justify-content: center; padding: 0; }
 .menu-label { white-space: nowrap; font-size: 13px; }
 .menu-badge { margin-left: auto; background: #1d4ed8; color: white; font-size: 10px; padding: 2px 6px; border-radius: 999px; }
 .menu-empty { color: #64748b; font-size: 12px; padding: 0 12px; }
@@ -213,10 +233,11 @@ function toggleTheme(): void {
 .user-meta strong { color: var(--app-text); font-size: 13px; }
 .user-meta small { color: var(--muted); font-size: 11px; }
 .content-area { flex: 1; padding: 28px; min-width: 0; }
+.app-frame-rightbar-host { min-height: 100%; }
 .page-skeleton { background: var(--surface); padding: 24px; border-radius: 16px; }
 .page-fade-enter-active, .page-fade-leave-active { transition: opacity .16s ease, transform .16s ease; }
 .page-fade-enter-from { opacity: 0; transform: translateY(5px); }
 .page-fade-leave-to { opacity: 0; }
 @media (max-width: 1100px) { .menu-search { display: none; } .plugin-pill span { display: none; } }
-@media (max-width: 760px) { .sidebar { position: fixed; left: 0; top: 0; } .is-collapsed .sidebar { transform: translateX(-100%); } .topbar { padding: 0 16px; } .content-area { padding: 16px; } .breadcrumb span, .breadcrumb i { display: none; } .user-meta { display: none; } }
+@media (max-width: 760px) { .topbar { padding: 0 16px; } .content-area { padding: 16px; } .breadcrumb span, .breadcrumb i { display: none; } .user-meta { display: none; } }
 </style>

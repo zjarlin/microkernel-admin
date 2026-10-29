@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@addzero/app-frame':
+        specifier: workspace:*
+        version: link:packages/app-frame
       '@addzero/data-page':
         specifier: workspace:*
         version: link:packages/data-page
@@ -75,6 +78,12 @@ importers:
       vue-tsc:
         specifier: ^3.3.13
         version: 3.3.13(typescript@5.9.3)
+
+  packages/app-frame:
+    dependencies:
+      vue:
+        specifier: ^3.5.0
+        version: 3.5.44(typescript@5.9.3)
 
   packages/data-page:
     dependencies:
