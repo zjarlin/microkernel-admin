@@ -1,0 +1,25 @@
+# microkernel-admin 单容器部署：同一镜像同时托管前端产物与 /api（同源，无 CORS）。
+#
+# 数据目录按约定 bind 到 /root/DockerCompose/micro-admin/data，
+# 默认值只在 deploy/.env（0600）里出现一次，此处全部用 ${VAR:?} 强制注入。
+#
+# 本编排只包含本应用自身镜像，不内联任何中间件（postgres/redis/minio/...）。
+name: micro-admin
+
+services:
+  micro-admin:
+    image: ${MICRO_ADMIN_IMAGE:?MICRO_ADMIN_IMAGE is required}
+    container_name: micro-admin
+    restart: unless-stopped
+    # 只绑回环：本机 Caddy（localmesh，host 网络）反代到 127.0.0.1:${MICRO_ADMIN_HOST_PORT}
+    ports:
+      - "127.0.0.1:${MICRO_ADMIN_HOST_PORT:?MICRO_ADMIN_HOST_PORT is required}:5181"
+    environment:
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 5181
+      DB_FILE: /app/.data/ui.db
+      STATIC_DIR: /app/dist
+      SCHEMA_WRITE_PERMISSION: ${SCHEMA_WRITE_PERMISSION:-system:page:config}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+    volumes:
+      - ${MICRO_ADMIN_DATA_DIR:?MICRO_ADMIN_DATA_DIR is required}:/app/.data

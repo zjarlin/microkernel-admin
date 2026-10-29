@@ -3,7 +3,7 @@
 //
 // 数据全部走后端契约（/scada/*，实现在 `server/plugins/scada/`）；
 // 画布求值与几何在 src/shared/scada/render.ts，页面只做交互编排。
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, DocumentAdd, Download, Refresh } from '@element-plus/icons-vue'
 import { useService } from '@/shared/service'
@@ -24,6 +24,14 @@ import ScadaCanvas from '@/components/scada/ScadaCanvas.vue'
 import ScadaInspector from '@/components/scada/ScadaInspector.vue'
 import ScadaSymbolPalette from '@/components/scada/ScadaSymbolPalette.vue'
 import ScadaTagPicker from '@/components/scada/ScadaTagPicker.vue'
+import { RIGHT_PANEL_HOST_ID, closeRightPanel, openRightPanel, updateRightPanel, useRightPanel } from '@/shared/shell'
+
+const rightPanel = useRightPanel()
+
+/** 右栏面板 id：属性面板由外壳右栏承载，和其它页面的面板共用同一条轨道。 */
+const INSPECTOR_PANEL_ID = 'scada.inspector'
+/** 右栏宿主就绪后才挂 Teleport，避免目标还未渲染就先挂载。 */
+const inspectorReady = ref(false)
 
 /** 演示工程：真实部署由路由参数或工程上下文注入。 */
 const PROJECT_ID = 1
@@ -192,7 +200,38 @@ async function refreshAll(): Promise<void> {
   await loadScreens()
 }
 
-onMounted(() => void refreshAll())
+const inspectorHint = computed(() => {
+  if (selectedIds.value.length > 1) return `已选中 ${selectedIds.value.length} 个图元`
+  if (selectedWidget.value) return '位置、层叠、外观与通道变量绑定'
+  return '在画布上选中图元后编辑属性'
+})
+
+const inspectorOpen = computed(() => rightPanel.active?.id === INSPECTOR_PANEL_ID)
+
+/** 右栏被关掉后的唯一重开入口（画布工具条上的「属性」）。 */
+function toggleInspector(): void {
+  if (inspectorOpen.value) {
+    closeRightPanel(INSPECTOR_PANEL_ID)
+    return
+  }
+  openRightPanel({ id: INSPECTOR_PANEL_ID, title: '图元属性', hint: inspectorHint.value })
+}
+
+// 选中变化只更新右栏标题栏的说明，不重开面板、不重置用户拖好的宽度。
+watch(inspectorHint, (hint) => updateRightPanel(INSPECTOR_PANEL_ID, { hint }))
+
+onMounted(() => {
+  void refreshAll()
+  // 属性面板进外壳右栏：画布只保留「资源轨 + 画布」两列，宽度由布局服务统一求解。
+  openRightPanel({ id: INSPECTOR_PANEL_ID, title: '图元属性', hint: inspectorHint.value })
+  void nextTick(() => {
+    inspectorReady.value = window.document.getElementById(RIGHT_PANEL_HOST_ID) !== null
+  })
+})
+
+onBeforeUnmount(() => {
+  closeRightPanel(INSPECTOR_PANEL_ID)
+})
 
 // ---------------- 画面增删改 ----------------
 
@@ -579,6 +618,9 @@ function exportSvg(): void {
             </el-button-group>
             <el-button size="small" :disabled="!selectedIds.length" @click="rotateSelected">旋转</el-button>
             <el-button size="small" :disabled="!selectedIds.length" @click="deleteSelected">删除</el-button>
+            <el-button size="small" :type="inspectorOpen ? 'primary' : 'default'" :plain="inspectorOpen" @click="toggleInspector">
+              属性
+            </el-button>
             <el-button size="small" @click="fitToWidth">适应宽度</el-button>
             <el-slider v-model="zoom" class="scada-zoom" :min="0.2" :max="2" :step="0.05" size="small" :show-tooltip="false" />
           </div>
@@ -599,7 +641,8 @@ function exportSvg(): void {
         </div>
       </section>
 
-      <aside class="panel scada-pane scada-pane--right">
+      <!-- 属性面板投到外壳右栏：与布局服务共用一条轨道，可拖宽、可全屏。 -->
+      <Teleport v-if="inspectorReady" :to="`#${RIGHT_PANEL_HOST_ID}`">
         <ScadaInspector
           :document="document"
           :widget="selectedWidget"
@@ -615,7 +658,7 @@ function exportSvg(): void {
           @rotate="rotateSelected"
           @toggle-lock="toggleLock"
         />
-      </aside>
+      </Teleport>
     </div>
 
     <ScadaTagPicker
@@ -631,7 +674,8 @@ function exportSvg(): void {
 
 <style scoped>
 .scada-page { min-width: 0; }
-.scada-layout { display: grid; grid-template-columns: 244px minmax(0, 1fr) 300px; gap: 16px; align-items: stretch; }
+/* 资源轨 + 画布两列；属性面板已交给外壳右栏，不再自建第三列。 */
+.scada-layout { display: grid; grid-template-columns: 244px minmax(0, 1fr); gap: 16px; align-items: stretch; }
 .scada-pane { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 16px; }
 .scada-pane--canvas { padding: 12px; }
 .scada-pane-actions { display: flex; align-items: center; gap: 2px; }
@@ -654,6 +698,6 @@ function exportSvg(): void {
   display: flex; align-items: flex-start; justify-content: center;
   max-height: 72vh; overflow: auto; border-radius: 10px;
 }
-@media (max-width: 1280px) { .scada-layout { grid-template-columns: 220px minmax(0, 1fr); } .scada-pane--right { grid-column: 1 / -1; } }
+@media (max-width: 1280px) { .scada-layout { grid-template-columns: 220px minmax(0, 1fr); } }
 @media (max-width: 900px) { .scada-layout { grid-template-columns: 1fr; } }
 </style>

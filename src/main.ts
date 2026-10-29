@@ -16,7 +16,7 @@ import './styles/base.scss'
 import './styles/admin.scss'
 
 async function bootstrap(): Promise<void> {
-  document.title = `${import.meta.env.VITE_APP_TITLE || 'Micro Admin'} · 微内核后台`
+  document.title = `${import.meta.env.VITE_APP_TITLE || 'Microkernel Admin'} · 微内核后台`
   const app = createApp(App)
   const pinia = createPinia()
   app.use(pinia)

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import {
-  ArrowLeftBold, ArrowRightBold, Bell, Fold, Grid, Moon, Search, Sunny, SwitchButton,
+  ArrowLeftBold, ArrowRightBold, Bell, Close, Fold, FullScreen, Grid, Moon, Search, Setting, Sunny, SwitchButton,
 } from '@element-plus/icons-vue'
 import { filterByPermission, type MenuContribution } from '@/kernel'
 import { getKernel } from '@/router'
@@ -11,22 +11,22 @@ import { useSessionStore } from '@/stores/session'
 import { useKernelStore } from '@/stores/kernel'
 import { useUiStore } from '@/stores/ui'
 import { initialsOf } from '@/shared/format'
-import { AppFrame, createLayout } from '@addzero/app-frame'
+import { AppFrame } from '@addzero/app-frame'
+import TagsView from '@/components/shell/TagsView.vue'
+import LayoutSettingsPanel from '@/components/shell/LayoutSettingsPanel.vue'
+import { RIGHT_PANEL_HOST_ID, appLayout, closeRightPanel, openRightPanel, useRightPanel } from '@/shared/shell'
+import { useTabsStore } from '@/stores/tabs'
 
 const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 const ui = useUiStore()
 
-// 三栏框架：几何与面板导航由 @addzero/app-frame 持有（与 dsh 的 ctx.layout 同形），
-// 侧栏宽度/收起、右栏宽度都持久化在浏览器里，页面只声明「要不要右栏」。
-const layout = createLayout({
-  storageKey: 'micro-admin.layout',
-  storage: {
-    read: () => localStorage.getItem('micro-admin.layout'),
-    write: (value) => localStorage.setItem('micro-admin.layout', value),
-  },
-})
+// 三栏框架：几何与面板导航由 @addzero/app-frame 持有（与 dsh 的 ctx.layout 同形）。
+// 服务放在 @/shared/shell 里而不是这里，页面要开右栏时拿的是同一份实例。
+const layout = appLayout
+const rightPanel = useRightPanel()
+const tabs = useTabsStore()
 
 const kernelStore = useKernelStore()
 const booted = ref(true)
@@ -67,6 +67,25 @@ onMounted(() => {
   const kernel = getKernel()
   if (kernel) kernelStore.attach(kernel)
 })
+
+// 标签页与路由同源：进入即登记（隐藏页如个人中心也允许），标题取路由 meta。
+watch(
+  () => route.fullPath,
+  () => {
+    if (typeof route.name === 'string' && route.name === 'not-found') return
+    tabs.add({ path: route.path, title: pageTitle.value })
+  },
+  { immediate: true },
+)
+
+/** 布局设置与页面检查器共用右栏：再点一次即关闭。 */
+function toggleLayoutPanel(): void {
+  if (rightPanel.active?.id === 'shell.layout') {
+    closeRightPanel('shell.layout')
+    return
+  }
+  openRightPanel({ id: 'shell.layout', title: '布局设置', hint: '三栏几何与面板偏好' })
+}
 
 async function logout(): Promise<void> {
   await ElMessageBox.confirm('确定退出当前账号吗？', '退出登录', { type: 'warning', confirmButtonText: '退出', cancelButtonText: '取消' })
@@ -141,6 +160,11 @@ function toggleTheme(): void {
             <el-icon><Grid /></el-icon>
             <span>{{ enabledPlugins }} 个插件运行中</span>
           </router-link>
+          <el-tooltip content="布局设置" placement="bottom">
+            <el-button circle text @click="toggleLayoutPanel">
+              <el-icon :size="17"><Setting /></el-icon>
+            </el-button>
+          </el-tooltip>
           <el-tooltip :content="ui.dark ? '切换浅色' : '切换深色'" placement="bottom">
             <el-button circle text @click="toggleTheme">
               <el-icon :size="17"><Sunny v-if="ui.dark" /><Moon v-else /></el-icon>
@@ -172,6 +196,8 @@ function toggleTheme(): void {
         </div>
       </header>
 
+      <TagsView />
+
       <main class="content-area">
         <router-view v-slot="{ Component }">
           <transition name="page-fade" mode="out-in">
@@ -185,9 +211,33 @@ function toggleTheme(): void {
     </div>
     </template>
 
-    <!-- 右栏宿主：页面用 Teleport 把检查器/属性面板投进来，布局服务决定是否占轨道。 -->
-    <template #rightbar>
-      <div id="app-frame-rightbar-host" class="app-frame-rightbar-host"></div>
+    <!-- 右栏：外壳出标题栏与内容宿主，页面用 Teleport 把检查器/属性面板投进来。 -->
+    <template #rightbar="{ fullscreen }">
+      <div class="shell-rightbar">
+        <header class="shell-rightbar__head">
+          <div class="shell-rightbar__title">
+            <strong>{{ rightPanel.active?.title ?? '右侧面板' }}</strong>
+            <small v-if="rightPanel.active?.hint">{{ rightPanel.active.hint }}</small>
+          </div>
+          <div class="shell-rightbar__tools">
+            <el-tooltip :content="fullscreen ? '退出全屏' : '全屏'" placement="bottom">
+              <el-button circle text @click="layout.openRightbar(true, !fullscreen)">
+                <el-icon :size="16"><FullScreen /></el-icon>
+              </el-button>
+            </el-tooltip>
+            <el-tooltip content="关闭右侧面板" placement="bottom">
+              <el-button circle text @click="closeRightPanel()">
+                <el-icon :size="16"><Close /></el-icon>
+              </el-button>
+            </el-tooltip>
+          </div>
+        </header>
+        <div :id="RIGHT_PANEL_HOST_ID" class="shell-rightbar__body"></div>
+        <LayoutSettingsPanel v-if="rightPanel.active?.id === 'shell.layout'" />
+        <p v-else-if="!rightPanel.active" class="shell-rightbar__empty">
+          选中画布图元、打开通用页面详情时，面板会出现在这里。
+        </p>
+      </div>
     </template>
   </AppFrame>
 </template>
@@ -233,7 +283,14 @@ function toggleTheme(): void {
 .user-meta strong { color: var(--app-text); font-size: 13px; }
 .user-meta small { color: var(--muted); font-size: 11px; }
 .content-area { flex: 1; padding: 28px; min-width: 0; }
-.app-frame-rightbar-host { min-height: 100%; }
+.shell-rightbar { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.shell-rightbar__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 14px 14px 12px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 2; }
+.shell-rightbar__title { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.shell-rightbar__title strong { font-size: 14px; color: var(--app-text); }
+.shell-rightbar__title small { font-size: 11px; color: var(--muted); }
+.shell-rightbar__tools { display: flex; align-items: center; gap: 2px; flex: none; }
+.shell-rightbar__body { flex: 1; min-height: 0; overflow: auto; }
+.shell-rightbar__empty { margin: 0; padding: 20px 16px; font-size: 12px; line-height: 1.8; color: var(--muted); }
 .page-skeleton { background: var(--surface); padding: 24px; border-radius: 16px; }
 .page-fade-enter-active, .page-fade-leave-active { transition: opacity .16s ease, transform .16s ease; }
 .page-fade-enter-from { opacity: 0; transform: translateY(5px); }

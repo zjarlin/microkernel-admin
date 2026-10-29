@@ -1,11 +1,16 @@
-# Micro Admin
+# Microkernel Admin（微内核控制台）
 
-一个 Vue 3 + Vite + TypeScript 的微内核后台管理系统。内核只负责插件发现、依赖排序、启停、路由/菜单/服务/命令/槽位编排与资源回收；登录、工作台、系统管理、系统监控都以插件形式接入，业务能力对标若依常用后台模块。
+一个 Vue 3 + Vite + TypeScript 的微内核后台管理系统，外壳三栏布局取自
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的 `ui-layout`（MIT）。
+仓库名 `microkernel-admin`；运行期容器、门户别名与数据目录沿用 `micro-admin`
+（已登记 `micro-admin.lyokm.cn` 与 `/root/DockerCompose/micro-admin/data`，改名会牵动门户与证书，
+不在代码范围内）。内核只负责插件发现、依赖排序、启停、路由/菜单/服务/命令/槽位编排与资源回收；登录、工作台、系统管理、系统监控都以插件形式接入，业务能力对标若依常用后台模块。
 
 后台页面是**配置驱动**的：一份 schema 描述查询、列、表单、行操作与左树，前端不需要为每个页面写 `.vue`，后端用同一个引擎提供列表与增删改查。仓库自带 TypeScript 后端（Hono + `node:sqlite`），`node server/main.ts` 即可独立运行。
 
-通用页面层已抽成三个可被别的项目直接依赖的工作区包：`@addzero/data-page`（契约/引擎/状态机）、
-`@addzero/data-page-element`（Element Plus 壳）、`@addzero/ui-server`（HTTP + SQLite）。详见 [`docs/DATA-PAGE.md`](docs/DATA-PAGE.md)。
+通用层已抽成四个可被别的项目直接依赖的工作区包：`@addzero/data-page`（契约/引擎/状态机）、
+`@addzero/data-page-element`（Element Plus 壳）、`@addzero/ui-server`（HTTP + SQLite）、
+`@addzero/app-frame`（三栏布局与 `layout` 面板服务）。详见 [`docs/DATA-PAGE.md`](docs/DATA-PAGE.md)。
 
 演示账号：
 
@@ -113,6 +118,7 @@ packages/                     # 可被别的项目依赖的工作区包
   data-page/                  # 契约、CRUD 引擎、页面注册表、状态机、运行期接口（无 UI）
   data-page-element/          # Element Plus 适配：表格/查询栏/表单弹窗/左树
   ui-server/                  # Hono 外壳 + zod 配置 + node:sqlite 存储
+  app-frame/                  # 三栏布局壳 + layout 面板服务（dsh ui-layout 的 Vue 移植）
 src/
   kernel/                     # 与业务无关的微内核
   plugins/
@@ -174,7 +180,8 @@ SERVER_PORT=5181 DB_FILE=/root/DockerCompose/micro-admin/data/ui.db node server/
 
 schema 字段、HTTP 契约、包依赖方式与已知边界见 [`docs/DATA-PAGE.md`](docs/DATA-PAGE.md)。
 
-别的项目依赖这三个包时，仓库内直接跑源码 TS；对外发布先出产物：
+别的项目依赖这几个包时，仓库内直接跑源码 TS；`data-page` / `ui-server` 对外发布先出产物
+（`app-frame` / `data-page-element` 是 Vue 源码包，由消费方 Vite 编译，与上游 dsh 的用法一致）：
 
 ```bash
 pnpm build:packages     # packages/{data-page,ui-server} → dist/*.{js,d.ts}
@@ -185,7 +192,10 @@ pnpm build:packages     # packages/{data-page,ui-server} → dist/*.{js,d.ts}
 ## 已实现的后台能力
 
 - 登录/退出、会话恢复、Token 注入、登录后重定向。
-- 动态菜单、菜单搜索、侧栏折叠、暗色主题、面包屑。
+- 三栏外壳：菜单侧栏（可收起、可拖宽、窄屏自动成图标轨）+ 中栏路由 + 右栏面板
+  （检查器/布局设置共用一条轨道，可拖宽、可全屏；`Ctrl/⌘ + B` 收侧栏）。
+- 标签页：访问过的页面留成一排标签，支持关闭单个/其它/全部（工作台固定）。
+- 动态菜单、菜单搜索、暗色主题、面包屑、布局设置右栏。
 - 用户、角色、菜单、部门、岗位、字典、参数、公告、定时任务、设备台账全部由 schema 驱动：
   查询、分页、左树筛选（含下级）、表单校验、唯一性、删除保护、跨资源取值都在同一层实现。
 - 在线用户、服务监控、缓存监控；组态画布工作台。

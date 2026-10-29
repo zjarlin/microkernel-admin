@@ -4,7 +4,10 @@
   "description": "三栏可拖拽应用框架与 layout 服务：右侧栏按需让位、侧栏自动收起、面板导航（DeepSeek Harness AppFrame 的 Vue 移植）",
   "type": "module",
   "sideEffects": false,
-  "files": ["src", "README.md"],
+  "files": [
+    "src",
+    "README.md"
+  ],
   "exports": {
     ".": "./src/index.ts",
     "./AppFrame.vue": "./src/AppFrame.vue",
@@ -15,14 +18,6 @@
     "vue": "^3.5.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.json"
-  },
-  "publishConfig": {
-    "exports": {
-      ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
-      "./columns": { "types": "./dist/columns.d.ts", "default": "./dist/columns.js" },
-      "./layout": { "types": "./dist/layout.d.ts", "default": "./dist/layout.js" }
-    }
   }
 }

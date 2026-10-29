@@ -177,8 +177,10 @@ defineExpose({ toggleSidebar, columns })
       @keydown.right.prevent="nudge('rightbar', -1)"
     />
 
+    <!-- 用 v-show 而不是 v-if：右栏关闭时宿主仍留在 DOM 里，
+         页面用 Teleport 投递的检查器就不会因为目标消失而被卸载/丢失。 -->
     <section
-      v-if="rightTrack"
+      v-show="rightTrack"
       class="app-frame__right"
       :class="{ 'is-fullscreen': state.rightbarFullscreen }"
       :style="state.rightbarFullscreen ? undefined : { width: `${rightWidth}px` }"
