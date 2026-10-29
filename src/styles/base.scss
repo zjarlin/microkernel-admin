@@ -14,6 +14,19 @@
   --hover: #f1f5f9;
   --radius: 14px;
   color-scheme: light;
+
+  /*
+   * 让 Element Plus 的主色跟着品牌色走。
+   * 组件库用的是 primary / light-3…9 / dark-2 一组派生色，这里用 color-mix 现算，
+   * 换主题时不需要重新编译 SCSS。
+   */
+  --el-color-primary: var(--brand);
+  --el-color-primary-light-3: color-mix(in srgb, var(--brand) 70%, #ffffff);
+  --el-color-primary-light-5: color-mix(in srgb, var(--brand) 50%, #ffffff);
+  --el-color-primary-light-7: color-mix(in srgb, var(--brand) 30%, #ffffff);
+  --el-color-primary-light-8: color-mix(in srgb, var(--brand) 20%, #ffffff);
+  --el-color-primary-light-9: color-mix(in srgb, var(--brand) 10%, #ffffff);
+  --el-color-primary-dark-2: color-mix(in srgb, var(--brand) 80%, #000000);
 }
 
 html.dark {
@@ -48,6 +61,15 @@ html.dark {
   --el-table-header-bg-color: var(--surface-soft);
   --el-table-row-hover-bg-color: var(--hover);
   --el-table-border-color: var(--line);
+
+  /* 深色下 Element 的浅色派生拉向深底，再按品牌色重算一遍。 */
+  --el-color-primary: var(--brand);
+  --el-color-primary-light-3: color-mix(in srgb, var(--brand) 70%, #0d1424);
+  --el-color-primary-light-5: color-mix(in srgb, var(--brand) 50%, #0d1424);
+  --el-color-primary-light-7: color-mix(in srgb, var(--brand) 30%, #0d1424);
+  --el-color-primary-light-8: color-mix(in srgb, var(--brand) 20%, #0d1424);
+  --el-color-primary-light-9: color-mix(in srgb, var(--brand) 10%, #0d1424);
+  --el-color-primary-dark-2: color-mix(in srgb, var(--brand) 80%, #ffffff);
 }
 
 * { box-sizing: border-box; }

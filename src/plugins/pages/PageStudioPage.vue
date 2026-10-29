@@ -69,7 +69,8 @@ async function load(prefer?: string): Promise<void> {
   loading.value = true
   try {
     pages.value = await http.request<PageSchemaPayload[]>('/ui/pages')
-    const target = prefer ?? selectedKey.value ?? pages.value[0]?.key ?? ''
+    // 注意用 ||：selectedKey 初始是空字符串，?? 不会回落到第一项。
+    const target = prefer || selectedKey.value || pages.value[0]?.key || ''
     const found = pages.value.find((item) => item.key === target)
     if (found) select(found)
   } catch (error) {

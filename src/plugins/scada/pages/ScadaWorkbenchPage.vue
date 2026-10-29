@@ -31,6 +31,14 @@ import { attachScadaWorkbench } from '../workbench'
 const rightPanel = useRightPanel()
 
 /** 右栏面板 id：属性面板由外壳右栏承载，和其它页面的面板共用同一条轨道。 */
+/**
+ * 深拷贝：Vue 的响应式对象是 Proxy，`structuredClone` 会抛 DataCloneError；
+ * 画布文档本身只含 JSON 可表达的字段，用 JSON 往返最稳。
+ */
+function deepClone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
+}
+
 const INSPECTOR_PANEL_ID = 'scada.inspector'
 /** 右栏宿主就绪后才挂 Teleport，避免目标还未渲染就先挂载。 */
 const inspectorReady = ref(false)
@@ -231,7 +239,7 @@ onMounted(() => {
   void refreshAll()
   // 把画布的读写能力挂到公开句柄上：AI 插件（以及将来任何插件）只通过它协作。
   detachWorkbench.value = attachScadaWorkbench({
-    readDocument: () => structuredClone(document.value),
+    readDocument: () => deepClone(document.value),
     readSymbols: () => symbols.value,
     readTags: () => tagOptions.value,
     readSelection: () => [...selectedIds.value],
@@ -475,7 +483,7 @@ function deleteSelected(): void {
 function duplicateSelected(): void {
   const widget = selectedWidget.value
   if (!widget) return
-  const copy: ScadaWidget = structuredClone(widget)
+  const copy: ScadaWidget = deepClone(widget)
   copy.id = nextWidgetId()
   copy.name = `${widget.name} 副本`
   copy.rect = { ...widget.rect, x: widget.rect.x + 20, y: widget.rect.y + 20 }

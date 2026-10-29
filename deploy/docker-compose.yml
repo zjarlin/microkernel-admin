@@ -11,21 +11,19 @@ services:
     image: ${MICRO_ADMIN_IMAGE:?MICRO_ADMIN_IMAGE is required}
     container_name: micro-admin
     restart: unless-stopped
-    # 只绑回环：本机 Caddy（localmesh，host 网络）反代到 127.0.0.1:${MICRO_ADMIN_HOST_PORT}
-    ports:
-      - "127.0.0.1:${MICRO_ADMIN_HOST_PORT:?MICRO_ADMIN_HOST_PORT is required}:5181"
+    # 宿主网络：只监听回环（由 localmesh Caddy 反代），并且能直接访问 127.0.0.1 上的
+    # sub2api 网关，不需要给中间件/网关暴露额外地址，也不依赖 host-gateway 解析。
+    network_mode: host
     environment:
-      SERVER_HOST: 0.0.0.0
-      SERVER_PORT: 5181
+      SERVER_HOST: 127.0.0.1
+      SERVER_PORT: ${MICRO_ADMIN_HOST_PORT:?MICRO_ADMIN_HOST_PORT is required}
       DB_FILE: /app/.data/ui.db
       STATIC_DIR: /app/dist
       SCHEMA_WRITE_PERMISSION: ${SCHEMA_WRITE_PERMISSION:-system:page:config}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
-      # AI 网关：宿主机上的 sub2api，容器内经 host-gateway 访问（不写死内网 IP）。
-      AI_BASE_URL: ${AI_BASE_URL:-http://host.docker.internal:18080}
+      # AI 网关：宿主网络下直连 sub2api 的回环端口（不写死内网 IP）。
+      AI_BASE_URL: ${AI_BASE_URL:-http://127.0.0.1:18080}
       AI_MODEL: ${AI_MODEL:-ds}
       AI_API_KEY: ${AI_API_KEY:-}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     volumes:
       - ${MICRO_ADMIN_DATA_DIR:?MICRO_ADMIN_DATA_DIR is required}:/app/.data
