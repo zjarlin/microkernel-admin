@@ -17,7 +17,7 @@
 | `src/components/scada/ScadaSymbolPalette.vue` | 图元库面板（分类/搜索/点击或拖入） | 同上 |
 | `src/components/scada/ScadaInspector.vue` | 属性、几何、变量绑定、阈值 | 同上 |
 | `src/components/scada/ScadaTagPicker.vue` | 通道变量选择器 | 同上 |
-| `src/plugins/scada/pages/ScadaWorkbenchPage.vue` | 工作台编排：画面列表 + 画布 + 属性面板 | 由 `ScadaScene.vue` 精简重写 |
+| `src/plugins/scada/pages/ScadaWorkbenchPage.vue` | 工作台编排：资源轨（画面 + 图元库）+ 画布；属性面板 Teleport 到外壳右栏 | 由 `ScadaScene.vue` 精简重写 |
 | `server/plugins/scada/service.ts` | 真实后端：画面 CRUD、校验、点位目录 | 新增 |
 | `server/plugins/scada/tags.ts` | 点位目录（换成真实采集通道时只改这里） | 新增 |
 | `server/plugins/scada/index.ts` | 装配：读图元 JSON + KV 存储 | 新增 |

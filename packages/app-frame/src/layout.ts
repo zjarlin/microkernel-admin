@@ -93,9 +93,11 @@ export function createLayout(options: CreateLayoutOptions = {}): LayoutService {
     sidebarWidth: typeof saved?.sidebarWidth === 'number' && saved.sidebarWidth > 0
       ? saved.sidebarWidth
       : SIDEBAR_DEFAULT,
+    // 右栏默认关闭（宽度 0）：需要它的页面显式 `openRightbar(true, ...)` 才占轨道，
+    // 否则每个页面都会顶出一条空白栏。
     rightbarWidth: typeof saved?.rightbarWidth === 'number' && saved.rightbarWidth > 0
       ? saved.rightbarWidth
-      : ratioWidth,
+      : 0,
     sidebarCollapsed: saved?.sidebarCollapsed === true,
     rightbarFullscreen: saved?.rightbarFullscreen === true,
     activePanelId: null,
@@ -177,7 +179,7 @@ export function createLayout(options: CreateLayoutOptions = {}): LayoutService {
     },
     reset() {
       state.sidebarWidth = SIDEBAR_DEFAULT
-      state.rightbarWidth = Math.round(viewport() * rightbarRatio)
+      state.rightbarWidth = 0
       state.sidebarCollapsed = false
       state.rightbarFullscreen = false
       state.activePanelId = null

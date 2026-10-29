@@ -692,8 +692,8 @@ function exportSvg(): void {
 .scada-palette-head { margin: 4px 0 0; }
 .scada-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
 .scada-bar__left { display: flex; align-items: center; gap: 12px; font-size: 12px; flex-wrap: wrap; }
-.scada-bar__right { display: flex; align-items: center; gap: 8px; }
-.scada-zoom { width: 130px; }
+.scada-bar__right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.scada-zoom { width: 130px; min-width: 96px; flex: 0 1 130px; }
 .scada-canvas-host {
   display: flex; align-items: flex-start; justify-content: center;
   max-height: 72vh; overflow: auto; border-radius: 10px;

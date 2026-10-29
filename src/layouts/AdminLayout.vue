@@ -267,19 +267,25 @@ function toggleTheme(): void {
 .sidebar-foot { border-top: 1px solid rgba(148,163,184,.12); padding: 12px; }
 .collapse-button { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; height: 38px; border: 0; border-radius: 9px; background: rgba(148,163,184,.08); color: #94a3b8; cursor: pointer; font-size: 12px; }
 .collapse-button:hover { background: rgba(148,163,184,.14); color: #e2e8f0; }
-.main-area { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+/* 中栏宽度由布局服务求解（右栏一开就让位），所以响应式按「容器宽度」判断，
+   而不是按视口——视口 1600px 时中栏可能只有 880px。 */
+.main-area { min-width: 0; flex: 1; display: flex; flex-direction: column; container-type: inline-size; container-name: shell; }
 .topbar { height: 76px; flex: 0 0 76px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 0 28px; background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 15; backdrop-filter: blur(12px); }
 .topbar-left, .topbar-right { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .breadcrumb { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--muted); white-space: nowrap; }
 .breadcrumb i { font-style: normal; color: var(--line-strong); }
 .breadcrumb strong { color: var(--app-text); font-weight: 600; }
-.menu-search { width: 190px; }
+.menu-search { flex: 0 1 190px; min-width: 120px; }
 .plugin-pill { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-size: 12px; text-decoration: none; white-space: nowrap; }
 .plugin-pill:hover { color: #2563eb; border-color: #bfdbfe; background: #eff6ff; }
 .user-chip { display: flex; align-items: center; gap: 9px; background: transparent; border: 0; cursor: pointer; padding: 4px 6px; border-radius: 9px; }
 .user-chip:hover { background: var(--hover); }
 .avatar { width: 34px; height: 34px; border-radius: 50%; background: #0f172a; color: white; display: grid; place-items: center; font-size: 12px; font-weight: 700; }
-.user-meta { display: flex; flex-direction: column; text-align: left; line-height: 1.25; }
+.user-meta { display: flex; flex-direction: column; text-align: left; line-height: 1.25; min-width: 0; }
+.user-meta strong, .user-meta small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 128px; }
+.breadcrumb { min-width: 0; }
+.breadcrumb strong { overflow: hidden; text-overflow: ellipsis; }
+.topbar-left { flex: 1 1 auto; }
 .user-meta strong { color: var(--app-text); font-size: 13px; }
 .user-meta small { color: var(--muted); font-size: 11px; }
 .content-area { flex: 1; padding: 28px; min-width: 0; }
@@ -295,6 +301,10 @@ function toggleTheme(): void {
 .page-fade-enter-active, .page-fade-leave-active { transition: opacity .16s ease, transform .16s ease; }
 .page-fade-enter-from { opacity: 0; transform: translateY(5px); }
 .page-fade-leave-to { opacity: 0; }
-@media (max-width: 1100px) { .menu-search { display: none; } .plugin-pill span { display: none; } }
-@media (max-width: 760px) { .topbar { padding: 0 16px; } .content-area { padding: 16px; } .breadcrumb span, .breadcrumb i { display: none; } .user-meta { display: none; } }
+/* 容器查询：右栏占轨道时中栏变窄，先收搜索框与插件计数，再收用户部门，最后只留面包屑。 */
+@container shell (max-width: 1040px) { .menu-search { display: none; } .plugin-pill span { display: none; } }
+@container shell (max-width: 860px) { .user-meta { display: none; } .breadcrumb span, .breadcrumb i { display: none; } }
+@container shell (max-width: 640px) { .plugin-pill { display: none; } }
+@media (max-width: 760px) { .topbar { padding: 0 16px; } .content-area { padding: 16px; } }
+@media (max-width: 1100px) { .menu-search { display: none; } }
 </style>

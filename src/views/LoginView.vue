@@ -37,7 +37,7 @@ function fill(username: string, password: string): void {
 <template>
   <main class="login-page">
     <section class="login-brand">
-      <div class="brand-mark">MA</div>
+      <div class="brand-mark">MK</div>
       <p class="eyebrow">MICROKERNEL ADMIN</p>
       <h1>可组装的后台内核</h1>
       <p class="brand-copy">登录、权限、菜单与页面均由插件声明，宿主只负责生命周期。像搭积木一样扩展业务，同时保留若依式的管理体验。</p>
