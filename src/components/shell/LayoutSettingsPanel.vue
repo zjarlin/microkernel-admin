@@ -2,7 +2,9 @@
 // 布局设置：外壳右栏的常驻内容（若依「布局设置」抽屉的对应物）。
 // 只调用布局服务的公开方法，不直接读写下层状态，和拖拽手柄走同一条语义。
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { RIGHTBAR_MIN, RIGHTBAR_OVERLAY_BELOW, SIDEBAR_MAX, SIDEBAR_MIN, rightbarOverlays } from '@addzero/app-frame'
+import {
+  RIGHTBAR_MIN, RIGHTBAR_OVERLAY_BELOW, SIDEBAR_MAX, SIDEBAR_MIN, overlayRightbarWidth, rightbarOverlays,
+} from '@addzero/app-frame'
 import { appLayout } from '@/shared/shell'
 
 const state = appLayout.state
@@ -33,6 +35,7 @@ const rightbarMax = computed(() => appLayout.maxRightbarWidth())
  */
 const viewport = ref(typeof window === 'undefined' ? 1440 : window.innerWidth)
 const overlayMode = computed(() => rightbarOverlays(viewport.value))
+const overlayWidth = computed(() => overlayRightbarWidth(viewport.value))
 function onResize(): void {
   viewport.value = window.innerWidth
 }
@@ -82,13 +85,17 @@ function setFullscreen(fullscreen: boolean): void {
           @update:model-value="setFullscreen"
         />
       </div>
-      <div class="layout-settings__row layout-settings__row--stack">
+      <div v-if="overlayMode" class="layout-settings__row layout-settings__row--stack">
+        <span>浮层宽度 <b>{{ overlayWidth }}px</b></span>
+      </div>
+      <div v-else class="layout-settings__row layout-settings__row--stack">
         <span>宽度 <b>{{ rightbarWidth }}px</b></span>
         <el-slider v-model="rightbarWidth" :min="RIGHTBAR_MIN" :max="rightbarMax" :step="8" size="small" :show-tooltip="false" />
       </div>
-      <!-- 上限来自「中栏至少留 720px」，不是固定值；写出来用户才知道为什么拖不动。 -->
+      <!-- 轨道模式的上限来自「中栏至少留 720px」，不是固定值；写出来用户才知道为什么拖不动。 -->
       <p v-if="overlayMode" class="layout-settings__note">
-        窗口窄于 {{ RIGHTBAR_OVERLAY_BELOW }}px：右栏改为浮层覆盖在内容上，中栏保持满宽，不再挤占表格。
+        窗口窄于 {{ RIGHTBAR_OVERLAY_BELOW }}px：右栏改为浮层覆盖在内容上（关闭后恢复原样），
+        中栏保持满宽，表格不再被压。放大窗口即回到并排轨道。
       </p>
       <p v-else class="layout-settings__note">当前窗口下最大 {{ rightbarMax }}px：中栏始终保留至少 720px，表格不会被右栏压成一条缝。</p>
     </section>
