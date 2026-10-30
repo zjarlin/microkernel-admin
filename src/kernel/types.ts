@@ -10,9 +10,20 @@ export interface ContributionOwner {
 export interface MenuContribution extends ContributionOwner {
   id: string
   title: string
-  path: string
+  /** 叶子页面的路径；目录节点（`folder` 或有子项）可不填。 */
+  path?: string
   icon?: string
+  /** 一级分组标题；分组是自动生成的目录，插件不注册分组本身。 */
   group?: string
+  /**
+   * 父菜单 id：有值时挂到该节点下，层级不限。
+   *
+   * 与 `group` 二选一即可——`parent` 优先，因此插件可以自建「目录 → 子目录 → 页面」
+   * 的任意深度结构，而不必等别人先注册分组。
+   */
+  parent?: string
+  /** 显式目录：只有子项、自身不可点。有子项时即使不写也会自动变成目录。 */
+  folder?: boolean
   order?: number
   permission?: string
   hidden?: boolean

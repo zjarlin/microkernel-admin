@@ -21,11 +21,15 @@ export const routes: RouteContribution[] = [
 ]
 
 export const menus: MenuContribution[] = [
-  { id: 'sys-user', title: '用户管理', path: '/system/user', icon: 'User', group: '系统管理', order: 10, permission: 'system:user:list' },
-  { id: 'sys-role', title: '角色管理', path: '/system/role', icon: 'UserFilled', group: '系统管理', order: 20, permission: 'system:role:list' },
-  { id: 'sys-menu', title: '菜单管理', path: '/system/menu', icon: 'Menu', group: '系统管理', order: 30, permission: 'system:menu:list' },
-  { id: 'sys-dept', title: '部门管理', path: '/system/dept', icon: 'OfficeBuilding', group: '系统管理', order: 40, permission: 'system:dept:list' },
-  { id: 'sys-post', title: '岗位管理', path: '/system/post', icon: 'Postcard', group: '系统管理', order: 50, permission: 'system:post:list' },
+  // 三级：分组（自动目录）→ 自建目录 → 页面。
+  // 目录用 `folder` 声明，页面用 `parent` 挂上去；层级不限，侧栏按 parent 递归装配。
+  { id: 'sys-access', title: '用户与权限', icon: 'Lock', group: '系统管理', order: 10, folder: true },
+  { id: 'sys-org', title: '组织机构', icon: 'OfficeBuilding', group: '系统管理', order: 20, folder: true },
+  { id: 'sys-user', title: '用户管理', path: '/system/user', icon: 'User', parent: 'sys-access', order: 10, permission: 'system:user:list' },
+  { id: 'sys-role', title: '角色管理', path: '/system/role', icon: 'UserFilled', parent: 'sys-access', order: 20, permission: 'system:role:list' },
+  { id: 'sys-menu', title: '菜单管理', path: '/system/menu', icon: 'Menu', parent: 'sys-access', order: 30, permission: 'system:menu:list' },
+  { id: 'sys-dept', title: '部门管理', path: '/system/dept', icon: 'OfficeBuilding', parent: 'sys-org', order: 10, permission: 'system:dept:list' },
+  { id: 'sys-post', title: '岗位管理', path: '/system/post', icon: 'Postcard', parent: 'sys-org', order: 20, permission: 'system:post:list' },
   { id: 'sys-dict', title: '字典管理', path: '/system/dict', icon: 'Collection', group: '系统工具', order: 60, permission: 'system:dict:list' },
   { id: 'sys-config', title: '参数设置', path: '/system/config', icon: 'Setting', group: '系统工具', order: 70, permission: 'system:config:list' },
   { id: 'sys-notice', title: '通知公告', path: '/system/notice', icon: 'Bell', group: '系统工具', order: 80, permission: 'system:notice:list' },

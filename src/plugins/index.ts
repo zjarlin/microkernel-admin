@@ -1,5 +1,6 @@
 import type { PluginDefinition } from '@/kernel'
 import { coreAdminPlugin } from './core-admin'
+import { sidebarPlugin } from './sidebar'
 import { systemPlugin } from './system'
 import { monitorPlugin } from './monitor'
 import { scadaPlugin } from './scada'
@@ -11,6 +12,7 @@ import { pageAgentPlugin } from './page-agent'
 /** 插件清单：新增业务域只改这一处，宿主不感知具体页面。 */
 export const pluginCatalog: PluginDefinition[] = [
   coreAdminPlugin,
+  sidebarPlugin,
   systemPlugin,
   monitorPlugin,
   scadaPlugin,

@@ -24,6 +24,9 @@
     },
     {
       "path": "./packages/scada-dsl"
+    },
+    {
+      "path": "./packages/nav-tree"
     }
   ]
 }

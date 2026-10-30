@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
-import {
-  ArrowLeftBold, ArrowRightBold, Bell, Close, Fold, FullScreen, Grid, Moon, Search, Setting, Sunny, SwitchButton,
-} from '@element-plus/icons-vue'
-import { filterByPermission, type MenuContribution } from '@/kernel'
+import { Bell, Close, Fold, FullScreen, Grid, Moon, Setting, Sunny, SwitchButton } from '@element-plus/icons-vue'
 import { getKernel } from '@/router'
 import { useSessionStore } from '@/stores/session'
 import { useKernelStore } from '@/stores/kernel'
@@ -14,6 +11,7 @@ import { initialsOf } from '@/shared/format'
 import { AppFrame } from '@addzero/app-frame'
 import TagsView from '@/components/shell/TagsView.vue'
 import LayoutSettingsPanel from '@/components/shell/LayoutSettingsPanel.vue'
+import SlotHost from '@/components/shell/SlotHost.vue'
 import { RIGHT_PANEL_HOST_ID, appLayout, closeRightPanel, openRightPanel, useRightPanel } from '@/shared/shell'
 import { useTabsStore } from '@/stores/tabs'
 import { applyTheme, useTheme } from '@/shared/theme'
@@ -31,93 +29,14 @@ const tabs = useTabsStore()
 
 const kernelStore = useKernelStore()
 const booted = ref(true)
-const quickSearch = ref('')
 
-/**
- * 菜单区是否还有未显示的内容。
- *
- * 底部渐隐只在「还能继续往下滚」时出现：一直挂着会让最后一个菜单看起来被裁掉，
- * 滚到底之后仍有一层灰雾盖在「设备台账」上。
- */
-const moreBelow = ref(false)
-const menuScroll = ref<{ setScrollTop: (top: number) => void; wrapRef?: HTMLElement | null } | null>(null)
-let menuObserver: ResizeObserver | null = null
-
-function menuWrap(): HTMLElement | null {
-  return menuScroll.value?.wrapRef ?? null
-}
-
-function syncMoreBelow(): void {
-  const wrap = menuWrap()
-  if (!wrap) {
-    moreBelow.value = false
-    return
-  }
-  // 按「最后一个菜单项是否被容器下沿裁掉」判断，而不是 scrollHeight：
-  // 菜单区底部有 24px padding，用 scrollHeight 会永久判成「下面还有内容」，
-  // 于是渐隐一直挂在最末一项（设备台账）上，看起来像被灰雾盖住。
-  const items = wrap.querySelectorAll<HTMLElement>('.menu-item, .menu-empty')
-  const last = items[items.length - 1]
-  if (!last) {
-    moreBelow.value = false
-    return
-  }
-  const gap = last.getBoundingClientRect().bottom - wrap.getBoundingClientRect().bottom
-  moreBelow.value = gap > 4
-}
-
-function onMenuScroll(): void {
-  syncMoreBelow()
-}
-
-const groups = computed(() => {
-  const kernel = getKernel()
-  if (!kernel) return [] as Array<{ name: string; items: MenuContribution[] }>
-  const enabled = new Set(kernelStore.statuses.filter((item) => item.enabled).map((item) => item.id))
-  const menus = filterByPermission(
-    kernel.menuContributions().filter((menu) => !menu.pluginId || enabled.has(menu.pluginId)),
-    session.permissions,
-  )
-  const order = ['概览', '系统管理', '系统工具', '系统监控']
-  const bucket = new Map<string, MenuContribution[]>()
-  for (const menu of menus) {
-    const key = menu.group ?? '其他'
-    bucket.set(key, [...(bucket.get(key) ?? []), menu])
-  }
-  return [...bucket.entries()]
-    .sort(([a], [b]) => (order.indexOf(a) < 0 ? 99 : order.indexOf(a)) - (order.indexOf(b) < 0 ? 99 : order.indexOf(b)))
-    .map(([name, items]) => ({ name, items }))
-})
-
-const filteredGroups = computed(() => {
-  const keyword = quickSearch.value.trim().toLowerCase()
-  if (!keyword) return groups.value
-  return groups.value
-    .map((group) => ({ ...group, items: group.items.filter((item) => item.title.toLowerCase().includes(keyword)) }))
-    .filter((group) => group.items.length > 0)
-})
-
-const activeMenu = computed(() => route.path)
 const pageTitle = computed(() => (typeof route.meta.title === 'string' ? route.meta.title : '工作台'))
 const enabledPlugins = computed(() => kernelStore.statuses.filter((item) => item.enabled).length)
 
 onMounted(() => {
   const kernel = getKernel()
   if (kernel) kernelStore.attach(kernel)
-  syncMoreBelow()
-  // 窗口缩放、插件启停都会改变菜单区高度/内容长度，用观察器统一重判，
-  // 不去挨个订阅 store（漏一个就会出现「渐隐还在但已经到底」）。
-  menuObserver = new ResizeObserver(() => syncMoreBelow())
-  if (menuWrap()) menuObserver.observe(menuWrap()!)
 })
-
-onBeforeUnmount(() => {
-  menuObserver?.disconnect()
-  menuObserver = null
-})
-
-// 菜单项随插件启停变化，DOM 更新后再判一次。
-watch(filteredGroups, () => nextTick(syncMoreBelow))
 
 // 标签页与路由同源：进入即登记（隐藏页如个人中心也允许），标题取路由 meta。
 watch(
@@ -155,44 +74,16 @@ function toggleTheme(): void {
 
 <template>
   <AppFrame :layout="layout">
+    <!-- 侧栏整个是插件（`sidebar`）：外壳只声明槽位，品牌/搜索/折叠树/收起都在插件里。
+         停用该插件时这里只剩一段最小占位，不会出现「外壳自己画菜单」的第二套实现。 -->
     <template #sidebar="{ collapsed, toggle }">
-      <aside class="sidebar" :class="{ 'is-collapsed': collapsed, 'has-more-below': moreBelow }">
-      <div class="sidebar-head">
-        <div class="logo">MK</div>
-        <div v-show="!collapsed" class="logo-text">
-          <strong>Micro Kernel</strong>
-          <span>微内核控制台</span>
-        </div>
-      </div>
-
-      <el-scrollbar ref="menuScroll" class="sidebar-scroll" @scroll="onMenuScroll">
-        <nav class="menu-nav" aria-label="主导航">
-          <section v-for="group in filteredGroups" :key="group.name" class="menu-group">
-            <p v-show="!collapsed" class="menu-group-title">{{ group.name }}</p>
-            <router-link
-              v-for="item in group.items"
-              :key="item.id"
-              :to="item.path"
-              class="menu-item"
-              :class="{ active: activeMenu === item.path }"
-              :title="collapsed ? item.title : undefined"
-            >
-              <el-icon :size="18"><component :is="item.icon ?? 'Menu'" /></el-icon>
-              <span v-show="!collapsed" class="menu-label">{{ item.title }}</span>
-              <span v-if="item.badge && !collapsed" class="menu-badge">{{ item.badge }}</span>
-            </router-link>
-          </section>
-          <p v-if="filteredGroups.length === 0" class="menu-empty">没有匹配的菜单</p>
-        </nav>
-      </el-scrollbar>
-
-      <div class="sidebar-foot">
-        <button class="collapse-button" type="button" @click="toggle">
-          <el-icon><ArrowRightBold v-if="collapsed" /><ArrowLeftBold v-else /></el-icon>
-          <span v-show="!collapsed">收起侧栏</span>
-        </button>
-      </div>
-      </aside>
+      <SlotHost name="shell:sidebar" :bind="{ collapsed, toggle }">
+        <!-- 侧栏插件被停用时的兜底：保留轨道与品牌位，不自己重画菜单。 -->
+        <aside class="sidebar-fallback" :class="{ 'is-collapsed': collapsed }">
+          <div class="sidebar-fallback__logo">MK</div>
+          <p v-if="!collapsed" class="sidebar-fallback__hint">侧栏插件未启用</p>
+        </aside>
+      </SlotHost>
     </template>
 
     <template #default="{ toggleSidebar: toggle }">
@@ -210,7 +101,6 @@ function toggleTheme(): void {
         </div>
 
         <div class="topbar-right">
-          <el-input v-model="quickSearch" class="menu-search" placeholder="搜索菜单" :prefix-icon="Search" clearable />
           <router-link to="/plugins" class="plugin-pill" title="插件中心">
             <el-icon><Grid /></el-icon>
             <span>{{ enabledPlugins }} 个插件运行中</span>
@@ -303,39 +193,11 @@ function toggleTheme(): void {
 </template>
 
 <style scoped>
+/* 侧栏插件停用时的兜底样式（深色轨道 + 品牌方块），与插件内部视觉一致。 */
+.sidebar-fallback { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 20px 12px; background: #0f172a; }
+.sidebar-fallback__logo { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: linear-gradient(135deg, #3b82f6, #22d3ee); color: #08111d; font-weight: 900; }
+.sidebar-fallback__hint { margin: 0; font-size: 12px; color: #64748b; text-align: center; }
 /* 宽度由 @addzero/app-frame 的列求解决定，这里只负责把内容填满所在轨道。 */
-.sidebar { width: 100%; height: 100%; background: #0f172a; color: #cbd5e1; display: flex; flex-direction: column; position: sticky; top: 0; z-index: 20; }
-.sidebar-head { height: 76px; display: flex; align-items: center; gap: 12px; padding: 0 20px; border-bottom: 1px solid rgba(148,163,184,.12); }
-.sidebar.is-collapsed .sidebar-head { padding: 0 12px; justify-content: center; }
-.logo { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: linear-gradient(135deg, #3b82f6, #22d3ee); color: #08111d; font-weight: 900; flex: 0 0 38px; }
-.logo-text { display: flex; flex-direction: column; line-height: 1.25; }
-.logo-text strong { color: #f8fafc; font-size: 14px; letter-spacing: .01em; }
-.logo-text span { color: #7d8da4; font-size: 11px; }
-/* 菜单多于一屏时在自己的区域里滚动：细滚动条 + 底部渐隐，提示「还有内容」。 */
-.sidebar-scroll { flex: 1; min-height: 0; position: relative; }
-.sidebar-scroll :deep(.el-scrollbar__bar.is-vertical) { opacity: .35; }
-.sidebar-scroll::after {
-  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 28px; pointer-events: none;
-  background: linear-gradient(to bottom, rgba(15, 23, 42, 0), #0f172a);
-  opacity: 0; transition: opacity .18s ease;
-}
-/* 只有「下面还有菜单」时才给渐隐，滚到底即消失，不再遮住最后一项。 */
-.sidebar.has-more-below .sidebar-scroll::after { opacity: 1; }
-.menu-nav { padding: 18px 12px 24px; }
-.menu-group { margin-bottom: 18px; }
-.menu-group-title { margin: 0 0 8px; padding: 0 12px; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: #64748b; font-weight: 700; }
-.menu-item { position: relative; display: flex; align-items: center; gap: 11px; min-height: 40px; padding: 0 12px; border-radius: 9px; color: #a9b6c9; text-decoration: none; transition: background .18s ease, color .18s ease; }
-.menu-item + .menu-item { margin-top: 2px; }
-.menu-item:hover { background: rgba(148,163,184,.09); color: #f1f5f9; }
-.menu-item.active { background: linear-gradient(90deg, rgba(59,130,246,.22), rgba(34,211,238,.07)); color: #f8fafc; }
-.menu-item.active::before { content: ''; position: absolute; left: 0; top: 11px; bottom: 11px; width: 2px; border-radius: 2px; background: #38bdf8; }
-.sidebar.is-collapsed .menu-item { justify-content: center; padding: 0; }
-.menu-label { white-space: nowrap; font-size: 13px; }
-.menu-badge { margin-left: auto; background: #1d4ed8; color: white; font-size: 10px; padding: 2px 6px; border-radius: 999px; }
-.menu-empty { color: #64748b; font-size: 12px; padding: 0 12px; }
-.sidebar-foot { border-top: 1px solid rgba(148,163,184,.12); padding: 12px; }
-.collapse-button { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; height: 38px; border: 0; border-radius: 9px; background: rgba(148,163,184,.08); color: #94a3b8; cursor: pointer; font-size: 12px; }
-.collapse-button:hover { background: rgba(148,163,184,.14); color: #e2e8f0; }
 /* 中栏宽度由布局服务求解（右栏一开就让位），所以响应式按「容器宽度」判断，
    而不是按视口——视口 1600px 时中栏可能只有 880px。 */
 .main-area { min-width: 0; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; container-type: inline-size; container-name: shell; }
@@ -344,7 +206,6 @@ function toggleTheme(): void {
 .breadcrumb { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--muted); white-space: nowrap; }
 .breadcrumb i { font-style: normal; color: var(--line-strong); }
 .breadcrumb strong { color: var(--app-text); font-weight: 600; }
-.menu-search { flex: 0 1 190px; min-width: 120px; }
 .plugin-pill { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-size: 12px; text-decoration: none; white-space: nowrap; }
 .plugin-pill:hover { color: #2563eb; border-color: #bfdbfe; background: #eff6ff; }
 .user-chip { display: flex; align-items: center; gap: 9px; background: transparent; border: 0; cursor: pointer; padding: 4px 6px; border-radius: 9px; }
@@ -373,9 +234,8 @@ function toggleTheme(): void {
 .page-fade-enter-from { opacity: 0; transform: translateY(5px); }
 .page-fade-leave-to { opacity: 0; }
 /* 容器查询：右栏占轨道时中栏变窄，先收搜索框与插件计数，再收用户部门，最后只留面包屑。 */
-@container shell (max-width: 1040px) { .menu-search { display: none; } .plugin-pill span { display: none; } }
+@container shell (max-width: 1040px) { .plugin-pill span { display: none; } }
 @container shell (max-width: 860px) { .user-meta { display: none; } .breadcrumb span, .breadcrumb i { display: none; } }
 @container shell (max-width: 640px) { .plugin-pill { display: none; } }
 @media (max-width: 760px) { .topbar { padding: 0 16px; } .content-area { padding: 16px; } }
-@media (max-width: 1100px) { .menu-search { display: none; } }
 </style>
