@@ -19,6 +19,17 @@ const rightbarWidth = computed({
 
 const rightbarMax = computed(() => Math.round((typeof window === 'undefined' ? 1440 : window.innerWidth) * 0.7))
 
+/**
+ * 侧栏开关：按开关给出的目标值显式设置，而不是「切一下」。
+ *
+ * 之前用 toggle 忽略传入值：开关状态与侧栏实际收起状态一旦漂移（窄屏自动收起、
+ * 或两次快速点击）就再也对不上，用户会看到「开关是开的、侧栏还是全宽」。
+ */
+function setCollapsed(collapsed: boolean): void {
+  if (collapsed) appLayout.closeSidebar()
+  else appLayout.openSidebar()
+}
+
 /** el-switch 的回调写成方法而不是模板内联箭头函数，避免模板类型推导踩到边界。 */
 function setFullscreen(fullscreen: boolean): void {
   appLayout.openRightbar(true, fullscreen)
@@ -31,7 +42,10 @@ function setFullscreen(fullscreen: boolean): void {
       <h3>侧栏</h3>
       <div class="layout-settings__row">
         <span>收起为图标轨道</span>
-        <el-switch :model-value="state.sidebarCollapsed" @update:model-value="appLayout.toggleSidebar()" />
+        <el-switch
+          :model-value="state.sidebarCollapsed"
+          @update:model-value="(value: string | number | boolean) => setCollapsed(Boolean(value))"
+        />
       </div>
       <div class="layout-settings__row layout-settings__row--stack">
         <span>宽度 <b>{{ sidebarWidth }}px</b></span>
