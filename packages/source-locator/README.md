@@ -23,15 +23,20 @@ import vue from '@vitejs/plugin-vue'
 import { markSourceElements, sourceLocatorPlugin } from '@addzero/source-locator/vite'
 
 export default defineConfig({
-  define: { __VUE_PROD_DEVTOOLS__: 'true' }, // 保留 __file 与 __vueParentComponent
   plugins: [
-    vue({ template: { compilerOptions: { nodeTransforms: [markSourceElements()] } } }),
+    vue({
+      // 生产构建默认会把 __file / __vueParentComponent 裁掉，组件链要靠它们。
+      // 必须走插件自己的 features 开关：直接 define `__VUE_PROD_DEVTOOLS__`
+      // 会被 plugin-vue 的默认值覆盖，产物里根本不会留下这两个属性。
+      features: { prodDevtools: true },
+      template: { compilerOptions: { nodeTransforms: [markSourceElements()] } },
+    }),
     sourceLocatorPlugin(),
   ],
 })
 ```
 
-`__VUE_PROD_DEVTOOLS__` 只需要在**生产构建**里打开才需要这一行；开发构建默认就有。
+`features.prodDevtools` 只在**生产构建**下才有区别；开发构建默认保留。
 
 ```ts
 // 任意宿主代码
