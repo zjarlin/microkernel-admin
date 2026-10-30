@@ -6,7 +6,9 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import {
   RIGHTBAR_MIN,
+  overlayRightbarWidth,
   rightbarCap,
+  rightbarOverlays,
   SIDEBAR_AUTO_COLLAPSE,
   SIDEBAR_MAX,
   SIDEBAR_MIN,
@@ -39,14 +41,25 @@ const state = props.layout.state
 const narrow = computed(() => viewport.value < SIDEBAR_AUTO_COLLAPSE)
 const collapsed = computed(() => (narrow.value && !narrowExpanded.value) || state.sidebarCollapsed)
 const rightTrack = computed(() => state.rightbarWidth > 0)
+/**
+ * 窄帧宽下右栏走浮层：不参与列求解，中栏保持满宽，面板盖在内容之上。
+ *
+ * 否则 1280 的笔记本上侧栏 280 + 右栏下限 300 会把中栏压到 700 以下，
+ * 表格只能横向滚动，「内容区被挤」的观感就是这么来的。
+ */
+const rightOverlay = computed(() => rightTrack.value && !state.rightbarFullscreen && rightbarOverlays(viewport.value))
 
 const columns = computed(() => {
   const sidebarPref = collapsed.value ? 0 : state.sidebarWidth
-  return computeColumns(viewport.value, sidebarPref, state.rightbarWidth, props.collapsedWidth)
+  // 浮层不占轨道：传 0 让中栏拿满宽度，右栏宽度由 overlayRightbarWidth 单独给。
+  return computeColumns(viewport.value, sidebarPref, rightOverlay.value ? 0 : state.rightbarWidth, props.collapsedWidth)
 })
 
 const sidebarWidth = computed(() => (collapsed.value ? props.collapsedWidth : columns.value.sidebar))
-const rightWidth = computed(() => (rightTrack.value ? columns.value.rightbar : 0))
+const rightWidth = computed(() => {
+  if (!rightTrack.value) return 0
+  return rightOverlay.value ? overlayRightbarWidth(viewport.value) : columns.value.rightbar
+})
 
 function measure(): void {
   viewport.value = root.value?.clientWidth ?? window.innerWidth
@@ -165,7 +178,7 @@ defineExpose({ toggleSidebar, columns })
     </main>
 
     <div
-      v-if="rightWidth > 0 && !state.rightbarFullscreen"
+      v-if="rightWidth > 0 && !state.rightbarFullscreen && !rightOverlay"
       class="app-frame__handle app-frame__handle--right"
       role="separator"
       aria-orientation="vertical"
@@ -183,7 +196,7 @@ defineExpose({ toggleSidebar, columns })
     <section
       v-show="rightTrack"
       class="app-frame__right"
-      :class="{ 'is-fullscreen': state.rightbarFullscreen }"
+      :class="{ 'is-fullscreen': state.rightbarFullscreen, 'is-overlay': rightOverlay }"
       :style="state.rightbarFullscreen ? undefined : { width: `${rightWidth}px` }"
       aria-label="右侧面板"
     >
@@ -196,6 +209,7 @@ defineExpose({ toggleSidebar, columns })
 .app-frame {
   display: flex;
   align-items: stretch;
+  position: relative;
   width: 100%;
   /* 外壳永远等于视口高度：内容超长时由中栏内部滚动，页面本身不长大。
      否则侧栏（sticky + 100vh）会在长页面下方露出空白/底边。 */
@@ -209,6 +223,15 @@ defineExpose({ toggleSidebar, columns })
 .app-frame.is-dragging .app-frame__sidebar { transition: none; }
 .app-frame__center { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .app-frame__right { flex: none; min-width: 0; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--line, #e6ebf2); background: var(--surface, #fff); overflow: hidden; }
+.app-frame__right.is-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 45;
+  border-left: 1px solid var(--line, #e6ebf2);
+  box-shadow: -24px 0 48px rgba(15, 23, 42, .18);
+}
 .app-frame__right.is-fullscreen { position: fixed; inset: 0; z-index: 60; width: 100%; max-width: none; border-left: 0; box-shadow: 0 24px 60px rgba(15, 23, 42, .28); }
 .app-frame__handle { flex: 0 0 5px; position: relative; cursor: col-resize; background: transparent; }
 .app-frame__handle::after { content: ''; position: absolute; inset: 0 2px; border-radius: 3px; background: transparent; transition: background .15s ease; }

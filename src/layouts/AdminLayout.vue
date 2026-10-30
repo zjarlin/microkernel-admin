@@ -53,7 +53,17 @@ function syncMoreBelow(): void {
     moreBelow.value = false
     return
   }
-  moreBelow.value = wrap.scrollTop + wrap.clientHeight < wrap.scrollHeight - 2
+  // 按「最后一个菜单项是否被容器下沿裁掉」判断，而不是 scrollHeight：
+  // 菜单区底部有 24px padding，用 scrollHeight 会永久判成「下面还有内容」，
+  // 于是渐隐一直挂在最末一项（设备台账）上，看起来像被灰雾盖住。
+  const items = wrap.querySelectorAll<HTMLElement>('.menu-item, .menu-empty')
+  const last = items[items.length - 1]
+  if (!last) {
+    moreBelow.value = false
+    return
+  }
+  const gap = last.getBoundingClientRect().bottom - wrap.getBoundingClientRect().bottom
+  moreBelow.value = gap > 4
 }
 
 function onMenuScroll(): void {

@@ -34,6 +34,16 @@ export const SIDEBAR_COLLAPSED = 56
 export const SIDEBAR_AUTO_COLLAPSE = 1024
 /** 右栏拖拽下限。 */
 export const RIGHTBAR_MIN = 300
+/**
+ * 低于该帧宽时右栏改为「浮层」：绝对定位盖在中栏上，不再挤占轨道。
+ *
+ * 1280 及以下的笔记本上，侧栏 280 + 右栏最小 300 会把中栏压到 700 以下；
+ * 这时宁可让检查器浮在内容之上（可随时关掉），也不把表格压成一条缝。
+ */
+export const RIGHTBAR_OVERLAY_BELOW = 1200
+/** 浮层模式下的右栏宽度（不参与列求解，因此单独给一个上限）。 */
+export const RIGHTBAR_OVERLAY_MAX = 420
+
 /** 右栏上限占整帧的比例。 */
 export const RIGHTBAR_MAX_RATIO = 0.7
 /**
@@ -86,6 +96,16 @@ export function rightbarCap(viewport: number, sidebar: number): number {
   const comfort = viewport - s - CENTER_COMFORT
   const hard = viewport - s - CENTER_MIN
   return Math.max(RIGHTBAR_MIN, Math.min(viewport * RIGHTBAR_MAX_RATIO, comfort, hard))
+}
+
+/** 当前帧宽下右栏是否走浮层模式（与 `AppFrame` 判定保持同一条件）。 */
+export function rightbarOverlays(viewport: number): boolean {
+  return viewport < RIGHTBAR_OVERLAY_BELOW
+}
+
+/** 浮层模式下的右栏宽度：随帧宽收放，但不小于拖拽下限。 */
+export function overlayRightbarWidth(viewport: number): number {
+  return Math.max(RIGHTBAR_MIN, Math.min(RIGHTBAR_OVERLAY_MAX, Math.round(viewport * 0.42)))
 }
 
 /** 右栏首次展开的默认宽度。 */

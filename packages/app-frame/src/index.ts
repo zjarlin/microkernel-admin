@@ -14,6 +14,8 @@ export {
   RIGHTBAR_DEFAULT_RATIO,
   RIGHTBAR_MAX_RATIO,
   RIGHTBAR_MIN,
+  RIGHTBAR_OVERLAY_BELOW,
+  RIGHTBAR_OVERLAY_MAX,
   SIDEBAR_AUTO_COLLAPSE,
   SIDEBAR_COLLAPSED,
   SIDEBAR_DEFAULT,
@@ -22,7 +24,9 @@ export {
   clampWidth,
   computeColumns,
   defaultRightbarWidth,
+  overlayRightbarWidth,
   rightbarCap,
+  rightbarOverlays,
   expandSidebarWidth,
 } from './columns.ts'
 export type { Columns } from './columns.ts'

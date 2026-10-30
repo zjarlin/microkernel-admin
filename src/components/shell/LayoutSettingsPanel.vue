@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // 布局设置：外壳右栏的常驻内容（若依「布局设置」抽屉的对应物）。
 // 只调用布局服务的公开方法，不直接读写下层状态，和拖拽手柄走同一条语义。
-import { computed } from 'vue'
-import { RIGHTBAR_MIN, SIDEBAR_MAX, SIDEBAR_MIN } from '@addzero/app-frame'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { RIGHTBAR_MIN, RIGHTBAR_OVERLAY_BELOW, SIDEBAR_MAX, SIDEBAR_MIN, rightbarOverlays } from '@addzero/app-frame'
 import { appLayout } from '@/shared/shell'
 
 const state = appLayout.state
@@ -24,6 +24,20 @@ const rightbarWidth = computed({
 })
 
 const rightbarMax = computed(() => appLayout.maxRightbarWidth())
+
+/**
+ * 窄屏下右栏是浮层，宽度由外壳按帧宽给定，滑块上的像素值不再决定布局。
+ *
+ * 这里把窗口宽度做成响应式，只为在说明里写清「为什么拖了没变化」，
+ * 不参与任何几何计算（几何只认外壳里的 ResizeObserver）。
+ */
+const viewport = ref(typeof window === 'undefined' ? 1440 : window.innerWidth)
+const overlayMode = computed(() => rightbarOverlays(viewport.value))
+function onResize(): void {
+  viewport.value = window.innerWidth
+}
+onMounted(() => window.addEventListener('resize', onResize))
+onBeforeUnmount(() => window.removeEventListener('resize', onResize))
 
 /**
  * 侧栏开关：按开关给出的目标值显式设置，而不是「切一下」。
@@ -73,7 +87,10 @@ function setFullscreen(fullscreen: boolean): void {
         <el-slider v-model="rightbarWidth" :min="RIGHTBAR_MIN" :max="rightbarMax" :step="8" size="small" :show-tooltip="false" />
       </div>
       <!-- 上限来自「中栏至少留 720px」，不是固定值；写出来用户才知道为什么拖不动。 -->
-      <p class="layout-settings__note">当前窗口下最大 {{ rightbarMax }}px：中栏始终保留至少 720px，表格不会被右栏压成一条缝。</p>
+      <p v-if="overlayMode" class="layout-settings__note">
+        窗口窄于 {{ RIGHTBAR_OVERLAY_BELOW }}px：右栏改为浮层覆盖在内容上，中栏保持满宽，不再挤占表格。
+      </p>
+      <p v-else class="layout-settings__note">当前窗口下最大 {{ rightbarMax }}px：中栏始终保留至少 720px，表格不会被右栏压成一条缝。</p>
     </section>
 
     <section class="layout-settings__group">
