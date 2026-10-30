@@ -11,6 +11,7 @@ import type { SchemaStateStore } from '@addzero/data-page'
 import { createScadaPlugin } from './plugins/scada/index.ts'
 import { createAiPlugin } from './plugins/ai/index.ts'
 import { createThemePlugin } from './plugins/theme/index.ts'
+import { createPageAgentPlugin } from './plugins/page-agent/index.ts'
 
 export interface HostDeps {
   pages: PageStore
@@ -31,15 +32,18 @@ export function createApp(deps: HostDeps): HostApp {
   // AI 插件依赖组态插件的图元/变量清单（同一份能力），不自己再读一份 JSON。
   const ai = createAiPlugin({ kv: deps.kv, symbols: scada.symbols, tags: scada.tags })
   const theme = createThemePlugin({ kv: deps.kv })
+  // 页面助手：设置与密钥都留在后端，浏览器只拿公开视图 + 同源代理。
+  const pageAgent = createPageAgentPlugin({ kv: deps.kv })
 
   const created = createUiApp({
     pages: deps.pages,
     runtime: deps.runtime,
     registry: createPageRegistry(deps.schemas),
     seed: seedPages,
-    extensions: [scada, ai, theme],
+    extensions: [scada, ai, theme, pageAgent],
     // 外观要在登录页就生效，因此主题读取免登录；写入仍要权限码。
-    publicPaths: ['/ui/theme'],
+    // 页面助手只公开「启动器视图」（外观/可见性）；完整设置与代理调用都要登录。
+    publicPaths: ['/ui/theme', '/page-agent/launcher'],
     ...(deps.corsOrigins ? { corsOrigins: deps.corsOrigins } : {}),
     ...(deps.staticDir ? { staticDir: deps.staticDir } : {}),
   })

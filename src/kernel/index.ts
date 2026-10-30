@@ -3,6 +3,7 @@ export { hasPermission, filterByPermission } from './permission'
 export type {
   CommandRegistry,
   EventBus,
+  HttpRegistry,
   KernelOptions,
   MenuContribution,
   PluginContext,
