@@ -9,7 +9,8 @@
 // - 完整设置（需登录）：供应商、模型、提示词、脱敏规则，只在真正要跑任务时才拉，
 //   并且配置改动后 `reload()` 能让下一次任务立即用上新参数。
 import { computed, ref, shallowRef, type ComputedRef, type Ref } from 'vue'
-import { PageAgent } from 'page-agent'
+// 只引类型：库本身按需加载（约 500 kB），首屏不该为「可能用不到」的助手付费。
+import type { PageAgent } from 'page-agent'
 import type { HttpRegistry } from '@/kernel'
 import {
   fetchLauncherView,
@@ -236,12 +237,29 @@ export function createPageAgentRuntime(options: { http: HttpRegistry }): PageAge
     root.setProperty('text-align', 'left')
   }
 
-  function ensureAgent(): PageAgent | null {
+  /**
+   * 首次真正要用时才把库拉下来。
+   *
+   * 静态 import 会把 ~500 kB 打进入口 vendor 包，每个页面都要付这笔带宽；
+   * 而助手只在用户点启动器/跑任务时才需要，按需加载后首屏完全不受影响。
+   */
+  let PageAgentClass: typeof import('page-agent').PageAgent | null = null
+
+  async function loadAgentClass(): Promise<typeof import('page-agent').PageAgent> {
+    if (!PageAgentClass) {
+      const module = await import('page-agent')
+      PageAgentClass = module.PageAgent
+    }
+    return PageAgentClass
+  }
+
+  async function ensureAgent(): Promise<PageAgent | null> {
     const config = settings.value
     if (!config || !config.ready) return null
     if (agent) return agent
 
-    agent = new PageAgent({
+    const Ctor = await loadAgentClass()
+    agent = new Ctor({
       // 供应商地址由后端持有；浏览器只知道同源代理，因此这里拼的是本站 API 前缀。
       baseURL: `${apiBase()}${config.proxyPath}`,
       model: config.model,
@@ -317,7 +335,7 @@ export function createPageAgentRuntime(options: { http: HttpRegistry }): PageAge
     }
     const config = await loadSettings()
     if (!config) return
-    const instance = ensureAgent()
+    const instance = await ensureAgent()
     if (!instance) return
     error.value = null
     instance.panel.show()
@@ -344,7 +362,7 @@ export function createPageAgentRuntime(options: { http: HttpRegistry }): PageAge
     }
     const config = await loadSettings()
     if (!config) return
-    const instance = ensureAgent()
+    const instance = await ensureAgent()
     if (!instance) return
     error.value = null
     task.value = text

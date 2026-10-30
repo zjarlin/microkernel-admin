@@ -28,6 +28,8 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks(id) {
             if (!id.includes('node_modules')) return undefined
+            // 页面助手按需加载：不要并进 vendor，否则 500 kB 又回到首屏。
+            if (id.includes('page-agent')) return undefined
             if (id.includes('element-plus') || id.includes('@element-plus')) return 'vendor-element'
             if (id.includes('vue-router') || id.includes('/vue/') || id.includes('pinia')) return 'vendor-vue'
             return 'vendor'
