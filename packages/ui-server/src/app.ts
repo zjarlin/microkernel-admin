@@ -35,6 +35,29 @@ function cacheOf(path: string, c: { header: (name: string, value: string) => voi
   c.header('Cache-Control', hashed ? 'public, max-age=31536000, immutable' : 'no-cache, must-revalidate')
 }
 
+/**
+ * 原样返回的响应体：文件下载与图片类接口不能套 JSON 信封。
+ *
+ * 扩展返回 `RawResponse` 时，HTTP 外壳直接用它的字节与头部回包，
+ * 因此 `.svg`、`.ifc` 这类产物不需要再额外开一个静态目录。
+ */
+export class RawResponse {
+  // 不用参数属性：`node --experimental-strip-types` 只支持纯类型擦除。
+  readonly body: string | Uint8Array
+  readonly contentType: string
+  readonly options: { filename?: string | undefined; inline?: boolean | undefined; status?: number | undefined }
+
+  constructor(
+    body: string | Uint8Array,
+    contentType: string,
+    options: { filename?: string | undefined; inline?: boolean | undefined; status?: number | undefined } = {},
+  ) {
+    this.body = body
+    this.contentType = contentType
+    this.options = options
+  }
+}
+
 /** 与前端响应信封对齐：HTTP 状态之外再给业务码。 */
 export interface Envelope<T> {
   code: number
@@ -203,6 +226,16 @@ export function createApp(deps: AppDeps): CreatedApp {
           body,
           user: user ? { username: user.username, permissions: user.permissions } : null,
         })
+        if (result instanceof RawResponse) {
+          const headers = new Headers({ 'Content-Type': result.contentType })
+          const filename = result.options.filename
+          if (filename) {
+            const encoded = encodeURIComponent(filename)
+            const disposition = result.options.inline ? 'inline' : 'attachment'
+            headers.set('Content-Disposition', `${disposition}; filename="${encoded}"; filename*=UTF-8''${encoded}`)
+          }
+          return new Response(result.body, { status: result.options.status ?? 200, headers })
+        }
         if (!unhandled(result)) return c.json(envelope(result))
       }
     } catch (error) {

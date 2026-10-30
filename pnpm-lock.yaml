@@ -26,6 +26,9 @@ importers:
       '@addzero/source-locator':
         specifier: workspace:*
         version: link:packages/source-locator
+      '@addzero/ui-canvas':
+        specifier: workspace:*
+        version: link:packages/ui-canvas
       '@addzero/ui-server':
         specifier: workspace:*
         version: link:packages/ui-server
@@ -134,6 +137,12 @@ importers:
       vue:
         specifier: ^3.5.0
         version: 3.5.44(typescript@5.9.3)
+
+  packages/ui-canvas:
+    dependencies:
+      '@addzero/data-page':
+        specifier: workspace:*
+        version: link:../data-page
 
   packages/ui-server:
     dependencies:

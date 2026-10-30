@@ -12,6 +12,7 @@ import { createScadaPlugin } from './plugins/scada/index.ts'
 import { createAiPlugin } from './plugins/ai/index.ts'
 import { createThemePlugin } from './plugins/theme/index.ts'
 import { createPageAgentPlugin } from './plugins/page-agent/index.ts'
+import { createUiCanvasPlugin } from './plugins/ui-canvas/index.ts'
 
 export interface HostDeps {
   pages: PageStore
@@ -34,13 +35,16 @@ export function createApp(deps: HostDeps): HostApp {
   const theme = createThemePlugin({ kv: deps.kv })
   // 页面助手：设置与密钥都留在后端，浏览器只拿公开视图 + 同源代理。
   const pageAgent = createPageAgentPlugin({ kv: deps.kv })
+  // 图纸插件必须拿到「已装配的注册表」：发布就是把编译结果 upsert 进去。
+  const registry = createPageRegistry(deps.schemas)
+  const uiCanvas = createUiCanvasPlugin({ kv: deps.kv, registry })
 
   const created = createUiApp({
     pages: deps.pages,
     runtime: deps.runtime,
-    registry: createPageRegistry(deps.schemas),
+    registry,
     seed: seedPages,
-    extensions: [scada, ai, theme, pageAgent],
+    extensions: [scada, ai, theme, pageAgent, uiCanvas],
     // 外观要在登录页就生效，因此主题读取免登录；写入仍要权限码。
     // 页面助手只公开「顶栏入口视图」（外观/可见性）；完整设置与代理调用都要登录。
     publicPaths: ['/ui/theme', '/page-agent/entry'],

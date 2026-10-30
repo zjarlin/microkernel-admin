@@ -5,6 +5,7 @@ import { systemPlugin } from './system'
 import { monitorPlugin } from './monitor'
 import { scadaPlugin } from './scada'
 import { pagesPlugin } from './pages'
+import { uiCanvasPlugin } from './ui-canvas'
 import { aiPlugin } from './ai'
 import { themePlugin } from './theme'
 import { pageAgentPlugin } from './page-agent'
@@ -24,4 +25,5 @@ export const pluginCatalog: PluginDefinition[] = [
   settingsPlugin,
   sourceFinderPlugin,
   pagesPlugin,
+  uiCanvasPlugin,
 ]

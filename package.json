@@ -22,7 +22,10 @@
     "@addzero/app-frame": "workspace:*",
     "@addzero/data-page": "workspace:*",
     "@addzero/data-page-element": "workspace:*",
+    "@addzero/nav-tree": "workspace:*",
     "@addzero/scada-dsl": "workspace:*",
+    "@addzero/source-locator": "workspace:*",
+    "@addzero/ui-canvas": "workspace:*",
     "@addzero/ui-server": "workspace:*",
     "@element-plus/icons-vue": "^2.3.2",
     "@hono/node-server": "^1.19.17",
@@ -33,9 +36,7 @@
     "pinia": "^3.0.4",
     "vue": "^3.5.44",
     "vue-router": "^4.6.4",
-    "zod": "^4.6.7",
-    "@addzero/nav-tree": "workspace:*",
-    "@addzero/source-locator": "workspace:*"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",

@@ -46,6 +46,9 @@ export default defineConfig(({ mode }) => {
             // 页面助手按需加载：不要并进 vendor，否则 500 kB 又回到首屏。
             if (id.includes('page-agent')) return undefined
             if (id.includes('element-plus') || id.includes('@element-plus')) return 'vendor-element'
+            // Vue 的模板编译器单独成块：只有 vibeelement（运行期编译模板）用得到，
+            // 留在共享 vendor 里会让每个页面都白下载一遍。
+            if (id.includes('@vue/compiler-') || id.includes('vue/dist/vue.esm-bundler')) return 'vendor-vue-compiler'
             if (id.includes('vue-router') || id.includes('/vue/') || id.includes('pinia')) return 'vendor-vue'
             return 'vendor'
           },
