@@ -49,7 +49,12 @@ export function createPageAgentPlugin(options: PageAgentPluginOptions): PageAgen
       const user = request.user
 
       // ---------------- 模型代理 ----------------
-      if (path === LLM_PATH && method === 'POST') {
+      // 库自己会在 baseURL 后拼 `/chat/completions`（见 @page-agent/llms），
+      // 因此两种形状都收：`/page-agent/llm` 与 `/page-agent/llm/chat/completions`。
+      const isLlmPath = path === LLM_PATH
+        || path === `${LLM_PATH}/chat/completions`
+        || path === `${LLM_PATH}/`
+      if (isLlmPath && method === 'POST') {
         const payload = (typeof request.body === 'object' && request.body !== null ? request.body : {}) as Record<string, unknown>
         const outcome = await invokeUpstream(store.read(), payload, { pagePath: pagePathOf(request) })
         if (outcome.status !== 200) {

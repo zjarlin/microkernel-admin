@@ -34,10 +34,14 @@ const probing = ref(false)
 const probeResult = ref<{ ok: boolean; message: string; elapsedMs: number } | null>(null)
 const saved = ref<PageAgentSettingsView | null>(null)
 
-/** 密钥输入框：空表示「沿用服务端已保存的那把」，不回填明文。 */
-const apiKeyDraft = ref('')
-
-type Draft = EditablePageAgentSettings
+type Draft = EditablePageAgentSettings & {
+  /**
+   * 密钥**只在这个草稿里**临时存在：空表示「沿用服务端已保存的那把」，从不回填明文。
+   * 放进表单模型是必须的——Element 的校验只读 `form.model[prop]`，
+   * 绑独立 ref 会让 `prop="apiKey"` 永远读到 undefined，必填规则形同失效。
+   */
+  apiKey: string
+}
 
 /**
  * 结构占位：只声明字段形状，**不含任何默认值**。
@@ -69,6 +73,7 @@ function blankDraft(): Draft {
     customSystemPrompt: '',
     experimentalScriptExecution: false,
     experimentalLlmsTxt: false,
+    apiKey: '',
   }
 }
 
@@ -90,16 +95,35 @@ const rules: FormRules = {
 /** 密钥为必填只在「还没存过」时成立：已存则留空表示沿用。 */
 const keyRequired = computed(() => !saved.value?.hasApiKey)
 
-const apiKeyRules: FormRules = {
+/**
+ * 必须用 `computed`：这个规则依赖「是否已存密钥」，而设置是异步读回来的。
+ * 写成普通对象会在 setup 时按 `saved=null` 一次性求值，导致已存密钥后仍然强制重填、
+ * 星号常驻，保存直接被校验拦住。
+ */
+const apiKeyRules = computed<FormRules>(() => ({
   apiKey: keyRequired.value
     ? [{ required: true, message: '请输入 API 密钥', trigger: ['blur', 'change'] }]
     : [],
+}))
+
+/**
+ * 稳定的结构比较：`JSON.stringify` 对键顺序敏感，而草稿对象与 `draftOf()` 返回的
+ * 键顺序并不一样，直接比会把「没改过」判成脏、保存按钮永远可点。这里按键名排序后再比。
+ */
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, item]) => `${JSON.stringify(key)}:${canonical(item)}`)
+    return `{${entries.join(',')}}`
+  }
+  return JSON.stringify(value ?? null)
 }
 
 const dirty = computed(() => {
   if (!saved.value) return false
-  const snapshot = draftOf(saved.value)
-  return JSON.stringify({ ...snapshot, apiKey: apiKeyDraft.value }) !== JSON.stringify({ ...draft, apiKey: apiKeyDraft.value })
+  return canonical({ ...draftOf(saved.value), apiKey: '' }) !== canonical(draft)
 })
 
 const allowList = computed(() => {
@@ -126,8 +150,10 @@ const launcherPositions = [
   { value: 'top-left', label: '左上' },
 ] as const
 
+/** 服务端视图 → 草稿：密钥永远从空开始（不回填明文）。 */
 function draftOf(view: EditablePageAgentSettings): Draft {
   return {
+    apiKey: '',
     enabled: view.enabled,
     baseUrl: view.baseUrl,
     model: view.model,
@@ -156,7 +182,7 @@ function draftOf(view: EditablePageAgentSettings): Draft {
 function apply(view: PageAgentSettingsView): void {
   saved.value = view
   Object.assign(draft, draftOf(view))
-  apiKeyDraft.value = ''
+  draft.apiKey = ''
   parserText.value = JSON.stringify(view.extraBody ?? {}, null, 2)
 }
 
@@ -192,7 +218,7 @@ function restoreDefaults(): void {
   const defaults = saved.value?.defaults
   if (!defaults) return
   Object.assign(draft, draftOf(defaults))
-  apiKeyDraft.value = ''
+  draft.apiKey = ''
   parserText.value = JSON.stringify(defaults.extraBody ?? {}, null, 2)
   void formRef.value?.clearValidate()
   ElMessage.info('已填入后端默认值，确认后点「保存」生效')
@@ -221,9 +247,11 @@ async function save(): Promise<void> {
   if (!valid) return
   saving.value = true
   try {
+    // 密钥留空 = 保留服务端原值（代理端才是唯一持有者）；非空才下发新值。
+    const { apiKey, ...rest } = draft
     const view = await savePageAgentSettings(http, {
-      ...draft,
-      ...(apiKeyDraft.value.trim() ? { apiKey: apiKeyDraft.value.trim() } : {}),
+      ...rest,
+      ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
     })
     apply(view)
     await runtime.reload()
@@ -302,7 +330,7 @@ const stateLabel: Record<string, string> = {
 const health = computed(() => {
   if (!draft.enabled) return { type: 'info' as const, text: '已停用' }
   if (!draft.baseUrl || !draft.model) return { type: 'warning' as const, text: '未填完供应商信息' }
-  if (!saved.value?.hasApiKey && !apiKeyDraft.value) return { type: 'warning' as const, text: '缺少密钥' }
+  if (!saved.value?.hasApiKey && !draft.apiKey.trim()) return { type: 'warning' as const, text: '缺少密钥' }
   return { type: 'success' as const, text: '配置完整' }
 })
 </script>
@@ -362,7 +390,7 @@ const health = computed(() => {
             <el-form-item label="API 密钥" prop="apiKey" :rules="apiKeyRules.apiKey">
               <div class="key-row">
                 <el-input
-                  v-model="apiKeyDraft"
+                  v-model="draft.apiKey"
                   type="password"
                   show-password
                   :placeholder="saved?.hasApiKey ? `已保存 ${saved.apiKeyHint}，留空即沿用` : '粘贴供应商密钥'"

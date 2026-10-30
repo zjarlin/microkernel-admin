@@ -168,15 +168,40 @@ export function createPageAgentRuntime(options: { http: HttpRegistry }): PageAge
    *
    * 路径用 query 传（而不是自定义头）是为了让代理端按 `allowPaths` 精准拒绝，
    * 且不依赖 CORS 预检里的自定义头白名单。
+   *
+   * 还要把宿主统一的 `{code,message,data}` 外壳拆掉：库按裸 OpenAI 响应解析
+   * （`data.choices[0]`），把外壳原样交给它只会得到「No choices in response」。
+   * 这里只解一层壳、不改造内容，代理的返回形状仍与 OpenAI 兼容。
    */
-  function proxyFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  async function proxyFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
     const raw = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
     const url = new URL(raw, location.origin)
     url.searchParams.set('page', currentPath.value)
     const headers = new Headers(init?.headers)
     const bearer = token()
     if (bearer) headers.set('Authorization', `Bearer ${bearer}`)
-    return fetch(url.toString(), { ...init, headers })
+
+    const response = await fetch(url.toString(), { ...init, headers })
+    const payload = (await response.json().catch(() => null)) as
+      | { code?: number; message?: string; data?: unknown }
+      | null
+
+    // 兼容两种上游形态：宿主的信封（code/data），或已是裸 OpenAI 响应。
+    if (payload && typeof payload === 'object' && 'code' in payload) {
+      const ok = response.ok && payload.code === 0
+      const body = ok
+        ? JSON.stringify(payload.data ?? {})
+        : JSON.stringify({ error: { message: payload.message ?? `请求失败（HTTP ${response.status}）` } })
+      return new Response(body, {
+        status: ok ? 200 : (response.status >= 400 ? response.status : 502),
+        statusText: ok ? 'OK' : 'Proxy Error',
+        headers: { 'content-type': 'application/json' },
+      })
+    }
+    return new Response(JSON.stringify(payload ?? {}), {
+      status: response.status,
+      headers: { 'content-type': 'application/json' },
+    })
   }
 
   function disposeAgent(): void {
