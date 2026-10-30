@@ -261,7 +261,13 @@ function toggleTheme(): void {
 .logo-text { display: flex; flex-direction: column; line-height: 1.25; }
 .logo-text strong { color: #f8fafc; font-size: 14px; letter-spacing: .01em; }
 .logo-text span { color: #7d8da4; font-size: 11px; }
-.sidebar-scroll { flex: 1; min-height: 0; }
+/* 菜单多于一屏时在自己的区域里滚动：细滚动条 + 底部渐隐，提示「还有内容」。 */
+.sidebar-scroll { flex: 1; min-height: 0; position: relative; }
+.sidebar-scroll :deep(.el-scrollbar__bar.is-vertical) { opacity: .35; }
+.sidebar-scroll::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 28px; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(15, 23, 42, 0), #0f172a);
+}
 .menu-nav { padding: 18px 12px 24px; }
 .menu-group { margin-bottom: 18px; }
 .menu-group-title { margin: 0 0 8px; padding: 0 12px; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: #64748b; font-weight: 700; }
