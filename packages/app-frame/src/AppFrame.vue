@@ -6,6 +6,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import {
   RIGHTBAR_MIN,
+  rightbarCap,
   SIDEBAR_AUTO_COLLAPSE,
   SIDEBAR_MAX,
   SIDEBAR_MIN,
@@ -103,8 +104,8 @@ function startDrag(target: DragTarget, event: PointerEvent): void {
       props.layout.setSidebarWidth(next)
       return
     }
-    // 右栏向左拖变宽，因此取负号。
-    const next = clampWidth(startWidth - delta, RIGHTBAR_MIN, viewport.value * 0.7)
+    // 右栏向左拖变宽，因此取负号；上限同时受中栏舒适宽度约束。
+    const next = clampWidth(startWidth - delta, RIGHTBAR_MIN, rightbarCap(viewport.value, sidebarWidth.value))
     props.layout.setRightbarWidth(next)
   }
 
@@ -132,7 +133,7 @@ function nudge(target: DragTarget, direction: -1 | 1): void {
     return
   }
   const base = columns.value.rightbar || RIGHTBAR_MIN
-  props.layout.setRightbarWidth(clampWidth(base + direction * 16, RIGHTBAR_MIN, viewport.value * 0.7))
+  props.layout.setRightbarWidth(clampWidth(base + direction * 16, RIGHTBAR_MIN, rightbarCap(viewport.value, sidebarWidth.value)))
 }
 
 defineExpose({ toggleSidebar, columns })

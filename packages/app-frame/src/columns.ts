@@ -12,8 +12,16 @@ export interface Columns {
   rightbar: number
 }
 
-/** 右栏展开时中栏保留的最小宽度。 */
+/** 右栏展开时中栏保留的硬下限（再窄就只能靠表格横向滚动）。 */
 export const CENTER_MIN = 400
+/**
+ * 中栏「舒适」宽度：右栏不给到这个数以下就不许再涨。
+ *
+ * 之前只守 CENTER_MIN=400：一旦用户把右栏拖到 957px（或从更宽的屏幕带过来），
+ * 1512px 屏上中栏就只剩 400px，表格被压成一条缝——用户看到的就是「表格压到右栏上」。
+ * 400 只作为极端兜底，正常让位以 720 为界（够放 6~7 列表格 + 分页）。
+ */
+export const CENTER_COMFORT = 720
 /** 侧栏拖拽下限。 */
 export const SIDEBAR_MIN = 264
 /** 侧栏拖拽上限。 */
@@ -56,11 +64,28 @@ export function computeColumns(
   collapsedWidth = SIDEBAR_COLLAPSED,
 ): Columns {
   const s = sidebar === 0 ? collapsedWidth : clampWidth(sidebar, SIDEBAR_MIN, SIDEBAR_MAX)
-  const available = viewport - s - CENTER_MIN
-  const r = rightbar === 0 || available < RIGHTBAR_MIN
+  const hardAvailable = viewport - s - CENTER_MIN
+  const r = rightbar === 0 || hardAvailable < RIGHTBAR_MIN
     ? 0
-    : Math.min(available, clampWidth(rightbar, RIGHTBAR_MIN, viewport * RIGHTBAR_MAX_RATIO))
+    : Math.min(
+        hardAvailable,
+        rightbarCap(viewport, s),
+        clampWidth(rightbar, RIGHTBAR_MIN, viewport * RIGHTBAR_MAX_RATIO),
+      )
   return { sidebar: s, center: Math.max(0, viewport - s - r), rightbar: r }
+}
+
+/**
+ * 右栏在给定帧宽/侧栏宽度下的实际上限。
+ *
+ * 取三者最小：帧宽比例、中栏舒适宽度让位后的余量、硬下限余量。
+ * 布局设置的滑块与「记住的宽度回填」都用它，保证界面显示的数值就是真实生效值。
+ */
+export function rightbarCap(viewport: number, sidebar: number): number {
+  const s = sidebar <= 0 ? SIDEBAR_COLLAPSED : clampWidth(sidebar, SIDEBAR_MIN, SIDEBAR_MAX)
+  const comfort = viewport - s - CENTER_COMFORT
+  const hard = viewport - s - CENTER_MIN
+  return Math.max(RIGHTBAR_MIN, Math.min(viewport * RIGHTBAR_MAX_RATIO, comfort, hard))
 }
 
 /** 右栏首次展开的默认宽度。 */

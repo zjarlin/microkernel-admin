@@ -24,6 +24,17 @@ import {
   type RuntimeStore,
 } from '@addzero/data-page'
 
+/**
+ * 静态资源缓存策略。
+ *
+ * `dist/assets/*` 的文件名带内容哈希，可以永久缓存；其余（头像、favicon、SPA 兜底）
+ * 用 `no-cache` + 强校验，保证发布后第一次刷新就能拿到新版本。
+ */
+function cacheOf(path: string, c: { header: (name: string, value: string) => void }): void {
+  const hashed = path.includes('/assets/')
+  c.header('Cache-Control', hashed ? 'public, max-age=31536000, immutable' : 'no-cache, must-revalidate')
+}
+
 /** 与前端响应信封对齐：HTTP 状态之外再给业务码。 */
 export interface Envelope<T> {
   code: number
@@ -205,8 +216,14 @@ export function createApp(deps: AppDeps): CreatedApp {
 
   // 前端构建产物：存在 dist 时才挂静态资源与 SPA 兜底。
   if (deps.staticDir && existsSync(deps.staticDir)) {
-    app.use('/*', serveStatic({ root: deps.staticDir }))
-    app.get('*', serveStatic({ root: deps.staticDir, path: 'index.html' }))
+    app.use('/*', serveStatic({ root: deps.staticDir, onFound: cacheOf }))
+    app.get('*', serveStatic({
+      root: deps.staticDir,
+      path: 'index.html',
+      // 入口 HTML 绝不能被缓存：它引用的是内容哈希文件名，一旦客户端留着旧 HTML，
+      // 就会一直加载旧构建（改完布局却仍看到旧界面，正是这种表现）。
+      onFound: (_path, c) => c.header('Cache-Control', 'no-cache, must-revalidate'),
+    }))
   }
 
   return { app, engine }

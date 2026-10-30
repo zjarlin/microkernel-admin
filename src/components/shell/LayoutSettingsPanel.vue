@@ -12,12 +12,18 @@ const sidebarWidth = computed({
   set: (value: number) => appLayout.setSidebarWidth(value),
 })
 
+/**
+ * 右栏宽度显示「真正生效的值」。
+ *
+ * 记住的偏好可能是 957px，但在 1512px 屏上中栏要留 720px，实际只能给 484px。
+ * 若这里显示 957，用户会以为设置没生效；所以读侧夹一次上限，写入仍交给布局服务。
+ */
 const rightbarWidth = computed({
-  get: () => state.rightbarWidth || RIGHTBAR_MIN,
+  get: () => Math.min(state.rightbarWidth || RIGHTBAR_MIN, rightbarMax.value),
   set: (value: number) => appLayout.setRightbarWidth(value),
 })
 
-const rightbarMax = computed(() => Math.round((typeof window === 'undefined' ? 1440 : window.innerWidth) * 0.7))
+const rightbarMax = computed(() => appLayout.maxRightbarWidth())
 
 /**
  * 侧栏开关：按开关给出的目标值显式设置，而不是「切一下」。
@@ -66,6 +72,8 @@ function setFullscreen(fullscreen: boolean): void {
         <span>宽度 <b>{{ rightbarWidth }}px</b></span>
         <el-slider v-model="rightbarWidth" :min="RIGHTBAR_MIN" :max="rightbarMax" :step="8" size="small" :show-tooltip="false" />
       </div>
+      <!-- 上限来自「中栏至少留 720px」，不是固定值；写出来用户才知道为什么拖不动。 -->
+      <p class="layout-settings__note">当前窗口下最大 {{ rightbarMax }}px：中栏始终保留至少 720px，表格不会被右栏压成一条缝。</p>
     </section>
 
     <section class="layout-settings__group">
@@ -88,6 +96,7 @@ function setFullscreen(fullscreen: boolean): void {
 .layout-settings__row + .layout-settings__row { margin-top: 10px; }
 .layout-settings__row--stack { flex-direction: column; align-items: stretch; gap: 2px; }
 .layout-settings__row b { color: var(--app-text); font-weight: 600; }
+.layout-settings__note { margin: 2px 0 0; font-size: 11.5px; line-height: 1.6; color: var(--muted); }
 .layout-settings__hint { margin: 0; font-size: 12px; line-height: 1.8; color: var(--muted); }
 .layout-settings__hint kbd { padding: 1px 5px; border: 1px solid var(--line-strong); border-radius: 4px; font-size: 11px; font-family: ui-monospace, monospace; }
 .layout-settings__reset { width: 100%; }

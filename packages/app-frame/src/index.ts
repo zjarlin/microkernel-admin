@@ -9,6 +9,7 @@ export { AppFrame }
 export type { AppFrameHandle } from './types.ts'
 
 export {
+  CENTER_COMFORT,
   CENTER_MIN,
   RIGHTBAR_DEFAULT_RATIO,
   RIGHTBAR_MAX_RATIO,
@@ -21,6 +22,7 @@ export {
   clampWidth,
   computeColumns,
   defaultRightbarWidth,
+  rightbarCap,
   expandSidebarWidth,
 } from './columns.ts'
 export type { Columns } from './columns.ts'

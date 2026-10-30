@@ -6,7 +6,7 @@
 //
 // 组件不直接改宽度，而是走这里的方法，因此拖拽、快捷键、插件命令共享同一条语义。
 import { reactive, readonly } from 'vue'
-import { RIGHTBAR_DEFAULT_RATIO, SIDEBAR_DEFAULT } from './columns.ts'
+import { RIGHTBAR_DEFAULT_RATIO, RIGHTBAR_MIN, SIDEBAR_DEFAULT, rightbarCap } from './columns.ts'
 
 /** 布局持久化形状（只存用户偏好，不存视口推导值）。 */
 export interface LayoutSnapshot {
@@ -39,8 +39,10 @@ export interface LayoutService {
   beginNavigation(): AbortSignal
   /** 打开右栏：track 决定是否占用正常轨道，fullscreen 决定是否覆盖整帧。 */
   openRightbar(track: boolean, fullscreen: boolean): void
-  /** 设置右栏宽度。 */
+  /** 设置右栏宽度（按当前帧宽与侧栏宽度夹到上限内）。 */
   setRightbarWidth(px: number): void
+  /** 右栏在当前帧宽下真正能用的最大宽度（布局设置与拖拽共用）。 */
+  maxRightbarWidth(): number
   /** 关闭右栏（不占轨道、不显示手柄）。 */
   closeRightbar(): void
   /** 登记一个中栏面板 id，返回注销函数。 */
@@ -87,7 +89,6 @@ export function createLayout(options: CreateLayoutOptions = {}): LayoutService {
 
   // 只有一个持久化键时不必再传 key：storage 适配器已经绑定到该键。
   const saved = storageKey && storage ? readSnapshot(storage) : null
-  const ratioWidth = Math.round(viewport() * rightbarRatio)
 
   const state = reactive<LayoutState>({
     sidebarWidth: typeof saved?.sidebarWidth === 'number' && saved.sidebarWidth > 0
@@ -105,6 +106,11 @@ export function createLayout(options: CreateLayoutOptions = {}): LayoutService {
 
   const panels = new Set<string>()
   let navigation = new AbortController()
+
+  /** 右栏上限：帧宽 − 侧栏 − 中栏舒适宽度，再与比例上限取小。 */
+  function maxRightbarWidth(): number {
+    return rightbarCap(viewport(), state.sidebarWidth || SIDEBAR_DEFAULT)
+  }
 
   function persist(): void {
     if (!storageKey || !storage) return
@@ -154,14 +160,25 @@ export function createLayout(options: CreateLayoutOptions = {}): LayoutService {
       return navigation.signal
     },
     openRightbar(track, fullscreen) {
-      if (track && state.rightbarWidth <= 0) state.rightbarWidth = ratioWidth
+      if (track && state.rightbarWidth <= 0) {
+        // 首次展开按比例给一个宽度，再按「中栏舒适宽度」夹一次：
+        // 否则大屏上记住的 957px 搬到小屏会把中栏压成一条缝。
+        const wanted = Math.round(viewport() * rightbarRatio)
+        state.rightbarWidth = Math.min(Math.max(RIGHTBAR_MIN, wanted), maxRightbarWidth())
+      }
       state.rightbarFullscreen = fullscreen
       persist()
     },
     setRightbarWidth(px) {
-      state.rightbarWidth = Math.max(0, Math.round(px))
+      if (px <= 0) {
+        state.rightbarWidth = 0
+        persist()
+        return
+      }
+      state.rightbarWidth = Math.min(Math.max(RIGHTBAR_MIN, Math.round(px)), maxRightbarWidth())
       persist()
     },
+    maxRightbarWidth,
     closeRightbar() {
       state.rightbarWidth = 0
       state.rightbarFullscreen = false

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import {
@@ -32,6 +32,33 @@ const tabs = useTabsStore()
 const kernelStore = useKernelStore()
 const booted = ref(true)
 const quickSearch = ref('')
+
+/**
+ * 菜单区是否还有未显示的内容。
+ *
+ * 底部渐隐只在「还能继续往下滚」时出现：一直挂着会让最后一个菜单看起来被裁掉，
+ * 滚到底之后仍有一层灰雾盖在「设备台账」上。
+ */
+const moreBelow = ref(false)
+const menuScroll = ref<{ setScrollTop: (top: number) => void; wrapRef?: HTMLElement | null } | null>(null)
+let menuObserver: ResizeObserver | null = null
+
+function menuWrap(): HTMLElement | null {
+  return menuScroll.value?.wrapRef ?? null
+}
+
+function syncMoreBelow(): void {
+  const wrap = menuWrap()
+  if (!wrap) {
+    moreBelow.value = false
+    return
+  }
+  moreBelow.value = wrap.scrollTop + wrap.clientHeight < wrap.scrollHeight - 2
+}
+
+function onMenuScroll(): void {
+  syncMoreBelow()
+}
 
 const groups = computed(() => {
   const kernel = getKernel()
@@ -67,7 +94,20 @@ const enabledPlugins = computed(() => kernelStore.statuses.filter((item) => item
 onMounted(() => {
   const kernel = getKernel()
   if (kernel) kernelStore.attach(kernel)
+  syncMoreBelow()
+  // 窗口缩放、插件启停都会改变菜单区高度/内容长度，用观察器统一重判，
+  // 不去挨个订阅 store（漏一个就会出现「渐隐还在但已经到底」）。
+  menuObserver = new ResizeObserver(() => syncMoreBelow())
+  if (menuWrap()) menuObserver.observe(menuWrap()!)
 })
+
+onBeforeUnmount(() => {
+  menuObserver?.disconnect()
+  menuObserver = null
+})
+
+// 菜单项随插件启停变化，DOM 更新后再判一次。
+watch(filteredGroups, () => nextTick(syncMoreBelow))
 
 // 标签页与路由同源：进入即登记（隐藏页如个人中心也允许），标题取路由 meta。
 watch(
@@ -106,7 +146,7 @@ function toggleTheme(): void {
 <template>
   <AppFrame :layout="layout">
     <template #sidebar="{ collapsed, toggle }">
-      <aside class="sidebar" :class="{ 'is-collapsed': collapsed }">
+      <aside class="sidebar" :class="{ 'is-collapsed': collapsed, 'has-more-below': moreBelow }">
       <div class="sidebar-head">
         <div class="logo">MK</div>
         <div v-show="!collapsed" class="logo-text">
@@ -115,7 +155,7 @@ function toggleTheme(): void {
         </div>
       </div>
 
-      <el-scrollbar class="sidebar-scroll">
+      <el-scrollbar ref="menuScroll" class="sidebar-scroll" @scroll="onMenuScroll">
         <nav class="menu-nav" aria-label="主导航">
           <section v-for="group in filteredGroups" :key="group.name" class="menu-group">
             <p v-show="!collapsed" class="menu-group-title">{{ group.name }}</p>
@@ -267,7 +307,10 @@ function toggleTheme(): void {
 .sidebar-scroll::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 28px; pointer-events: none;
   background: linear-gradient(to bottom, rgba(15, 23, 42, 0), #0f172a);
+  opacity: 0; transition: opacity .18s ease;
 }
+/* 只有「下面还有菜单」时才给渐隐，滚到底即消失，不再遮住最后一项。 */
+.sidebar.has-more-below .sidebar-scroll::after { opacity: 1; }
 .menu-nav { padding: 18px 12px 24px; }
 .menu-group { margin-bottom: 18px; }
 .menu-group-title { margin: 0 0 8px; padding: 0 12px; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: #64748b; font-weight: 700; }
