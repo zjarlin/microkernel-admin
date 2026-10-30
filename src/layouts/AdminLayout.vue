@@ -105,6 +105,9 @@ function toggleTheme(): void {
             <el-icon><Grid /></el-icon>
             <span>{{ enabledPlugins }} 个插件运行中</span>
           </router-link>
+          <!-- 顶栏动作槽位：全站级入口放这里（例如页面助手的 AI 图标）。
+               外壳只声明位置，具体按钮由插件贡献；停用插件即整块消失。 -->
+          <SlotHost name="shell:topbar-actions" />
           <el-tooltip content="布局设置" placement="bottom">
             <el-button circle text @click="toggleLayoutPanel">
               <el-icon :size="17"><Setting /></el-icon>

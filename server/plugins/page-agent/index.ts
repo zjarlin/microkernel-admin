@@ -10,7 +10,7 @@ import type { ExtensionRequest, KeyValueStore } from '@addzero/ui-server'
 import {
   PAGE_AGENT_CONFIG_PERMISSION,
   createSettingsStore,
-  launcherView,
+  entryView,
   publicSettings,
   type PageAgentSettings,
 } from './settings.ts'
@@ -65,9 +65,9 @@ export function createPageAgentPlugin(options: PageAgentPluginOptions): PageAgen
         return outcome.body
       }
 
-      // ---------------- 启动器视图（免登录，仅外观与可见性）----------------
-      if (path === '/page-agent/launcher' && method === 'GET') {
-        return launcherView(store.read())
+      // ---------------- 顶栏入口视图（免登录，仅外观与可见性）----------------
+      if (path === '/page-agent/entry' && method === 'GET') {
+        return entryView(store.read())
       }
 
       // ---------------- 设置 ----------------

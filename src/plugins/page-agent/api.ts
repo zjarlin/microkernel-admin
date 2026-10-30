@@ -16,13 +16,11 @@ export interface PanelStyle {
   zIndex: number
 }
 
-/** 启动器外观：位置、文案、颜色都来自后端设置。 */
-export interface LauncherStyle {
-  position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
+/** 顶栏入口外观：文案、是否带文字、强调色都来自后端设置。 */
+export interface EntryStyle {
   label: string
-  iconOnly: boolean
-  color: string
-  textColor: string
+  showLabel: boolean
+  accent: string
 }
 
 export interface RouteInstruction {
@@ -38,16 +36,16 @@ export interface MaskRule {
 }
 
 /**
- * 启动器视图：免登录可见的最小集合（外观与可见性）。
+ * 入口视图：免登录可见的最小集合（外观与可见性）。
  *
  * 不含供应商地址、模型、提示词与脱敏规则——匿名访客拿不到任何网关信息。
  */
-export interface LauncherView {
+export interface EntryView {
   enabled: boolean
   ready: boolean
   language: PageAgentLanguage
   panel: PanelStyle
-  launcher: LauncherStyle
+  entry: EntryStyle
   panelPolicy: PanelPolicy
   allowPaths: string[]
 }
@@ -67,7 +65,7 @@ export interface EditablePageAgentSettings {
   enableMask: boolean
   promptForNextTask: boolean
   panel: PanelStyle
-  launcher: LauncherStyle
+  entry: EntryStyle
   panelPolicy: PanelPolicy
   allowPaths: string[]
   routeInstructions: RouteInstruction[]
@@ -94,8 +92,8 @@ export interface PageAgentProbe {
   elapsedMs: number
 }
 
-export async function fetchLauncherView(http: HttpClient): Promise<LauncherView> {
-  return http.request<LauncherView>('/page-agent/launcher')
+export async function fetchEntryView(http: HttpClient): Promise<EntryView> {
+  return http.request<EntryView>('/page-agent/entry')
 }
 
 export async function fetchPageAgentSettings(http: HttpClient): Promise<PageAgentSettingsView> {

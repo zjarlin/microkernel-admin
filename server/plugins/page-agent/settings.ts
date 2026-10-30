@@ -16,15 +16,18 @@ export type PageAgentLanguage = 'zh-CN' | 'en-US'
 /** 面板出现时机：auto = 运行时自动展开；always = 常驻；none = 不显示（静默执行）。 */
 export type PanelPolicy = 'auto' | 'always' | 'none'
 
-/** 启动器（页面角落的常驻入口）外观：同样是配置，不写死在组件里。 */
-export interface LauncherStyle {
-  position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
+/**
+ * 顶栏入口外观：全站唯一的助手入口（`shell:topbar-actions` 槽位）。
+ *
+ * 入口固定在外壳顶栏，不再提供「角落浮标」这类第二位置——同一动作只留一个入口。
+ */
+export interface EntryStyle {
+  /** 提示与无障碍文案；顶栏空间不足时只显示图标，文案进 tooltip。 */
   label: string
-  /** 只显示图标（更适合仪表盘角落），false 显示完整文案。 */
-  iconOnly: boolean
-  /** 背景色：`var(--brand)` 或任意 CSS 颜色。 */
-  color: string
-  textColor: string
+  /** 是否在图标旁显示文案；窄屏由容器查询自动收起。 */
+  showLabel: boolean
+  /** 悬停/激活态的强调色：`var(--brand)` 或任意 CSS 颜色。 */
+  accent: string
 }
 
 export interface PanelStyle {
@@ -63,7 +66,7 @@ export interface MaskRule {
 }
 
 export interface PageAgentSettings {
-  /** 总开关：关闭后页面上的启动入口不出现，代理也拒绝调用。 */
+  /** 总开关：关闭后顶栏入口不出现，代理也拒绝调用。 */
   enabled: boolean
   /** OpenAI 兼容网关地址（含 /v1）。 */
   baseUrl: string
@@ -86,7 +89,7 @@ export interface PageAgentSettings {
   enableMask: boolean
   promptForNextTask: boolean
   panel: PanelStyle
-  launcher: LauncherStyle
+  entry: EntryStyle
   panelPolicy: PanelPolicy
   /** 允许运行助手的路径前缀；空数组 = 全站。 */
   allowPaths: string[]
@@ -127,12 +130,10 @@ export const DEFAULT_PAGE_AGENT_SETTINGS: PageAgentSettings = {
     accent: 'rgb(37, 99, 235)',
     zIndex: 2_147_483_000,
   },
-  launcher: {
-    position: 'bottom-right',
+  entry: {
     label: '页面助手',
-    iconOnly: false,
-    color: 'var(--brand)',
-    textColor: '#ffffff',
+    showLabel: false,
+    accent: 'var(--brand)',
   },
   panelPolicy: 'auto',
   allowPaths: [],
@@ -231,7 +232,7 @@ function panelStyle(value: unknown, base: PanelStyle): PanelStyle {
   }
 }
 
-/** 启动器颜色既允许 CSS 变量也允许具体色值，因此不做过严校验。 */
+/** 入口强调色既允许 CSS 变量也允许具体色值，因此不做过严校验。 */
 function cssColor(value: unknown, fallback: string): string {
   const text = typeof value === 'string' ? value.trim() : ''
   if (!text || text.length > 60) return fallback
@@ -239,15 +240,12 @@ function cssColor(value: unknown, fallback: string): string {
   return paint(text, fallback)
 }
 
-function launcherStyle(value: unknown, base: LauncherStyle): LauncherStyle {
-  const raw = (typeof value === 'object' && value !== null ? value : {}) as Partial<LauncherStyle>
-  const position = raw.position
+function entryStyle(value: unknown, base: EntryStyle): EntryStyle {
+  const raw = (typeof value === 'object' && value !== null ? value : {}) as Partial<EntryStyle>
   return {
-    position: position === 'bottom-left' || position === 'top-right' || position === 'top-left' ? position : base.position,
     label: text(raw.label, base.label, 24) || base.label,
-    iconOnly: bool(raw.iconOnly, base.iconOnly),
-    color: cssColor(raw.color, base.color),
-    textColor: cssColor(raw.textColor, base.textColor),
+    showLabel: bool(raw.showLabel, base.showLabel),
+    accent: cssColor(raw.accent, base.accent),
   }
 }
 
@@ -269,7 +267,7 @@ export function normalizeSettings(input: unknown, base: PageAgentSettings = DEFA
     enableMask: bool(raw.enableMask, base.enableMask),
     promptForNextTask: bool(raw.promptForNextTask, base.promptForNextTask),
     panel: panelStyle(raw.panel, base.panel),
-    launcher: launcherStyle(raw.launcher, base.launcher),
+    entry: entryStyle(raw.entry, base.entry),
     panelPolicy: raw.panelPolicy === 'always' || raw.panelPolicy === 'none' ? raw.panelPolicy : 'auto',
     allowPaths: raw.allowPaths === undefined ? base.allowPaths : stringList(raw.allowPaths),
     routeInstructions: raw.routeInstructions === undefined ? base.routeInstructions : routeInstructions(raw.routeInstructions),
@@ -299,29 +297,29 @@ export function seedSettingsFromEnv(env: NodeJS.ProcessEnv = process.env): PageA
 }
 
 /**
- * 启动器视图：免登录可见的最小集合。
+ * 入口视图：免登录可见的最小集合。
  *
  * 只回答「要不要显示、显示成什么样」，不含供应商地址、模型、提示词、
  * 脱敏规则这些内部信息——匿名访客拿不到任何可用于探测网关的东西。
  */
-export interface LauncherView {
+export interface EntryView {
   enabled: boolean
   /** 是否已具备运行条件（供应商 + 密钥齐备）。 */
   ready: boolean
   language: PageAgentLanguage
   panel: PanelStyle
-  launcher: LauncherStyle
+  entry: EntryStyle
   panelPolicy: PanelPolicy
   allowPaths: string[]
 }
 
-export function launcherView(settings: PageAgentSettings): LauncherView {
+export function entryView(settings: PageAgentSettings): EntryView {
   return {
     enabled: settings.enabled,
     ready: Boolean(settings.enabled && settings.baseUrl && settings.model && settings.apiKey),
     language: settings.language,
     panel: settings.panel,
-    launcher: settings.launcher,
+    entry: settings.entry,
     panelPolicy: settings.panelPolicy,
     allowPaths: settings.allowPaths,
   }
@@ -342,7 +340,7 @@ export interface EditablePageAgentSettings {
   enableMask: boolean
   promptForNextTask: boolean
   panel: PanelStyle
-  launcher: LauncherStyle
+  entry: EntryStyle
   panelPolicy: PanelPolicy
   allowPaths: string[]
   routeInstructions: RouteInstruction[]
@@ -383,7 +381,7 @@ function project(settings: PageAgentSettings): EditablePageAgentSettings {
     enableMask: settings.enableMask,
     promptForNextTask: settings.promptForNextTask,
     panel: settings.panel,
-    launcher: settings.launcher,
+    entry: settings.entry,
     panelPolicy: settings.panelPolicy,
     allowPaths: settings.allowPaths,
     routeInstructions: settings.routeInstructions,

@@ -3,7 +3,7 @@ import type { MenuContribution, RouteContribution } from '@/kernel'
 /**
  * 只有一个入口：设置页。
  *
- * 启动器在页面角落常驻（属于运行时 UI，不是菜单项），
+ * 助手入口在外壳顶栏常驻（属于运行时 UI，不是菜单项），
  * 因此这里不再放「打开助手」之类第二个入口，避免同一个动作两处入口。
  */
 export const routes: RouteContribution[] = [

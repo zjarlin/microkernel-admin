@@ -129,7 +129,7 @@ src/
     scada/                    # 组态画布工作台
     ai/                       # AI 插件：提示词库、画布指令生成、页面/主题生成
     theme/                    # 外观主题：颜色/圆角/密度的可视化配置
-    page-agent/               # 页面助手：alibaba/page-agent 的宿主、启动器与参数配置页
+    page-agent/               # 页面助手：alibaba/page-agent 的宿主、顶栏入口与参数配置页
     pages/                    # 把后端登记的页面变成路由与菜单（含页面工厂）
   schema/                     # 本仓库的页面 schema 基线 + 种子数据
   layouts/                    # 管理后台壳
@@ -206,7 +206,7 @@ pnpm build:packages     # packages/{data-page,ui-server} → dist/*.{js,d.ts}
 - AI 插件：提示词即配置（画布绘制/排版、页面 schema、外观 token），一条自然语言指令直接改画布；
   另有「页面工厂」把原型描述变成可上线页面、「外观主题」可视化调色并支持 AI 生成。见 [`docs/AI-PLUGIN.md`](docs/AI-PLUGIN.md)。
 - 页面助手（`page-agent` 插件）：把 [alibaba/page-agent](https://github.com/alibaba/page-agent) 装成可停用能力，
-  用自然语言操作当前页面；模型与密钥留在后端经同源代理调用，面板/启动器外观、步数、路径白名单、
+  用自然语言操作当前页面；模型与密钥留在后端经同源代理调用，顶栏 AI 入口、面板外观、步数、路径白名单、
   脱敏规则、页面指令全部在「系统工具 → 页面助手」里配。见 [`docs/PAGE-AGENT.md`](docs/PAGE-AGENT.md)。
 - 插件中心：依赖拓扑、启停、运行期错误面板、服务与命令清单。
 - 工作台：指标卡、趋势图、部门分布、公告、最近操作、插件槽位注入的健康卡片。

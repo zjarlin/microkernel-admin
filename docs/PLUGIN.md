@@ -88,6 +88,9 @@ setup 抛错 → rollback 已注册贡献 → failed（错误写入插件状态�
 
 当前内置槽位：
 
+- `shell:sidebar`：外壳左侧栏整块内容（`sidebar` 插件贡献品牌、菜单搜索与折叠树）。
+- `shell:topbar-actions`：外壳顶栏动作区（`page-agent` 插件贡献全站唯一的 AI 入口）。
+- `scada:assistant`：组态画布页的助手面板（`ai` 插件贡献画布指令生成）。
 - `dashboard:after-metrics`：工作台指标卡之后，`monitor` 插件用它注入服务健康卡片。
 
 `widgets` 已在内核中提供贡献注册与查询，宿主暂未内置仪表盘网格，可作为后续插件化看板的扩展点。

@@ -4,7 +4,7 @@
 // 三条约束（沿用本仓库前端规范）：
 // 1. 必填字段的红色星号与校验规则同源（`el-form` 的 rules），不靠提交后报错提示；
 // 2. 每个动作只有一个入口：保存、自检、清空密钥各自一处，不在别处再放一遍；
-// 3. 面板与启动器的外观、路径白名单、脱敏规则、附加指令都在这里改，改完立即对下一次任务生效。
+// 3. 面板与顶栏入口的外观、路径白名单、脱敏规则、附加指令都在这里改，改完立即对下一次任务生效。
 import { computed, onMounted, reactive, ref } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -64,7 +64,7 @@ function blankDraft(): Draft {
     enableMask: false,
     promptForNextTask: false,
     panel: { width: 0, height: 0, offsetBottom: 0, sideSpace: 0, radius: 0, colorFrom: '', colorTo: '', accent: '', zIndex: 0 },
-    launcher: { position: 'bottom-right', label: '', iconOnly: false, color: '', textColor: '' },
+    entry: { label: '', showLabel: false, accent: '' },
     panelPolicy: 'auto',
     allowPaths: [],
     routeInstructions: [],
@@ -88,7 +88,7 @@ const rules: FormRules = {
   model: [{ required: true, message: '请输入模型名', trigger: ['blur', 'change'] }],
   'panel.width': [{ required: true, type: 'number', message: '请输入面板宽度', trigger: 'change' }],
   'panel.height': [{ required: true, type: 'number', message: '请输入面板高度', trigger: 'change' }],
-  'launcher.label': [{ required: true, message: '请输入启动器文案', trigger: ['blur', 'change'] }],
+  'entry.label': [{ required: true, message: '请输入入口文案', trigger: ['blur', 'change'] }],
   maxSteps: [{ required: true, type: 'number', message: '请输入最大步数', trigger: 'change' }],
 }
 
@@ -135,20 +135,13 @@ const allowList = computed(() => {
 const panelPolicies: Array<{ value: PanelPolicy; label: string; hint: string }> = [
   { value: 'auto', label: '任务时展开', hint: '启动任务后自动展开面板，结束后保留结论' },
   { value: 'always', label: '常驻展开', hint: '打开即展开，适合把助手当表单填写器用' },
-  { value: 'none', label: '不显示面板', hint: '静默执行，只留启动器角标' },
+  { value: 'none', label: '不显示面板', hint: '静默执行，只留顶栏入口的状态点' },
 ]
 
 const languages: Array<{ value: PageAgentLanguage; label: string }> = [
   { value: 'zh-CN', label: '中文' },
   { value: 'en-US', label: 'English' },
 ]
-
-const launcherPositions = [
-  { value: 'bottom-right', label: '右下' },
-  { value: 'bottom-left', label: '左下' },
-  { value: 'top-right', label: '右上' },
-  { value: 'top-left', label: '左上' },
-] as const
 
 /** 服务端视图 → 草稿：密钥永远从空开始（不回填明文）。 */
 function draftOf(view: EditablePageAgentSettings): Draft {
@@ -167,7 +160,7 @@ function draftOf(view: EditablePageAgentSettings): Draft {
     enableMask: view.enableMask,
     promptForNextTask: view.promptForNextTask,
     panel: { ...view.panel },
-    launcher: { ...view.launcher },
+    entry: { ...view.entry },
     panelPolicy: view.panelPolicy,
     allowPaths: [...view.allowPaths],
     routeInstructions: view.routeInstructions.map((item) => ({ ...item })),
@@ -462,7 +455,7 @@ const health = computed(() => {
             <el-switch v-model="draft.promptForNextTask" />
           </div>
           <div class="switch-row">
-            <div><strong>总开关</strong><small>关掉后启动器不出现、代理拒绝调用</small></div>
+            <div><strong>总开关</strong><small>关掉后顶栏入口不出现、代理拒绝调用</small></div>
             <el-switch v-model="draft.enabled" />
           </div>
           <div class="switch-row">
@@ -476,11 +469,11 @@ const health = computed(() => {
         </div>
       </section>
 
-      <!-- 面板外观：尺寸与配色全部参数化，右侧即时示意。 -->
+      <!-- 面板与入口：尺寸与配色全部参数化，下方即时示意。 -->
       <section class="panel">
         <div class="panel-title">
-          <h2>面板与启动器外观</h2>
-          <span>尺寸、配色、位置、层级都是参数；保存后立即应用</span>
+          <h2>面板与顶栏入口</h2>
+          <span>全站只保留顶栏一个入口；尺寸、配色、层级都是参数，保存后立即应用</span>
         </div>
 
         <el-row :gutter="16">
@@ -551,37 +544,23 @@ const health = computed(() => {
         </el-form-item>
 
         <el-row :gutter="16">
-          <el-col :span="6">
-            <el-form-item label="启动器位置" prop="launcher.position">
-              <el-select v-model="draft.launcher.position" style="width: 100%">
-                <el-option v-for="item in launcherPositions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
+          <el-col :span="8">
+            <el-form-item label="入口文案" prop="entry.label">
+              <el-input v-model="draft.entry.label" placeholder="页面助手" />
             </el-form-item>
           </el-col>
-          <el-col :span="6">
-            <el-form-item label="启动器文案" prop="launcher.label">
-              <el-input v-model="draft.launcher.label" placeholder="页面助手" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="4">
-            <el-form-item label="启动器配色" prop="launcher.color">
+          <el-col :span="8">
+            <el-form-item label="入口强调色" prop="entry.accent">
               <div class="color-cell">
-                <el-input v-model="draft.launcher.color" class="mono-input" placeholder="var(--brand)" />
-                <el-color-picker :model-value="draft.launcher.color.startsWith('#') ? draft.launcher.color : null" @update:model-value="(value: string | null) => { if (value) draft.launcher.color = value }" />
+                <el-input v-model="draft.entry.accent" class="mono-input" placeholder="var(--brand)" />
+                <el-color-picker :model-value="draft.entry.accent.startsWith('#') ? draft.entry.accent : null" @update:model-value="(value: string | null) => { if (value) draft.entry.accent = value }" />
               </div>
             </el-form-item>
           </el-col>
-          <el-col :span="4">
-            <el-form-item label="文案颜色" prop="launcher.textColor">
-              <div class="color-cell">
-                <el-input v-model="draft.launcher.textColor" class="mono-input" />
-                <el-color-picker v-model="draft.launcher.textColor" />
-              </div>
-            </el-form-item>
-          </el-col>
-          <el-col :span="4">
-            <el-form-item label="只显示图标" prop="launcher.iconOnly">
-              <el-switch v-model="draft.launcher.iconOnly" />
+          <el-col :span="8">
+            <el-form-item label="图标旁显示文案" prop="entry.showLabel">
+              <el-switch v-model="draft.entry.showLabel" />
+              <p class="field-hint">顶栏变窄时自动只留图标，文案进悬停提示。</p>
             </el-form-item>
           </el-col>
         </el-row>
@@ -603,11 +582,8 @@ const health = computed(() => {
             </div>
             <div class="preview-input" :style="{ marginInline: `${draft.panel.sideSpace}px` }">输入任务，回车开始</div>
           </div>
-          <div
-            class="preview-launcher"
-            :style="{ background: draft.launcher.color, color: draft.launcher.textColor, borderRadius: '999px' }"
-          >
-            ✨<span v-if="!draft.launcher.iconOnly">{{ draft.launcher.label }}</span>
+          <div class="preview-entry" :style="{ '--preview-accent': draft.entry.accent }">
+            ✦<span v-if="draft.entry.showLabel">{{ draft.entry.label }}</span>
           </div>
         </div>
       </section>
@@ -619,7 +595,7 @@ const health = computed(() => {
           <span>当前：{{ allowList }}</span>
         </div>
 
-        <el-form-item label="允许运行的路径前缀" help="留空表示全站可运行；填写后只有命中的路径能看到启动器">
+        <el-form-item label="允许运行的路径前缀" help="留空表示全站可运行；填写后只有命中的路径能看到入口">
           <div class="list-editor">
             <div v-for="(_, index) in draft.allowPaths" :key="index" class="list-row">
               <el-input v-model="draft.allowPaths[index]" placeholder="/system/user" />
@@ -707,7 +683,7 @@ const health = computed(() => {
 .preview-panel__head .dot { width: 6px; height: 6px; border-radius: 50%; background: #fff; }
 .preview-panel__head .chev { margin-left: auto; opacity: .8; }
 .preview-input { background: rgba(255, 255, 255, .28); color: rgba(255, 255, 255, .9); font-size: 11.5px; padding: 6px 10px; border-radius: 8px; margin-bottom: 10px; }
-.preview-launcher { position: absolute; right: 18px; bottom: 14px; display: inline-flex; align-items: center; gap: 5px; padding: 8px 13px; font-size: 12px; font-weight: 600; box-shadow: 0 8px 18px rgba(15, 23, 42, .22); }
+.preview-entry { position: absolute; top: 12px; right: 18px; display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 10px; border: 1px solid var(--preview-accent); border-radius: 999px; color: var(--preview-accent); background: var(--surface); font-size: 12px; font-weight: 600; }
 .try-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .try-error { margin: 10px 0 0; font-size: 12px; color: var(--el-color-danger); }
 @media (max-width: 1100px) {

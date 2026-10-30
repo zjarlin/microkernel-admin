@@ -42,8 +42,8 @@ export function createApp(deps: HostDeps): HostApp {
     seed: seedPages,
     extensions: [scada, ai, theme, pageAgent],
     // 外观要在登录页就生效，因此主题读取免登录；写入仍要权限码。
-    // 页面助手只公开「启动器视图」（外观/可见性）；完整设置与代理调用都要登录。
-    publicPaths: ['/ui/theme', '/page-agent/launcher'],
+    // 页面助手只公开「顶栏入口视图」（外观/可见性）；完整设置与代理调用都要登录。
+    publicPaths: ['/ui/theme', '/page-agent/entry'],
     ...(deps.corsOrigins ? { corsOrigins: deps.corsOrigins } : {}),
     ...(deps.staticDir ? { staticDir: deps.staticDir } : {}),
   })

@@ -5,7 +5,7 @@
 // 公开方法。
 //
 // 两级加载，对应两套可见性：
-// - 启动器视图（免登录）：只回答「显不显示、长什么样」，用于外壳一进来就有入口；
+// - 入口视图（免登录）：只回答「显不显示、长什么样」，用于外壳一进来就有入口；
 // - 完整设置（需登录）：供应商、模型、提示词、脱敏规则，只在真正要跑任务时才拉，
 //   并且配置改动后 `reload()` 能让下一次任务立即用上新参数。
 import { computed, ref, shallowRef, type ComputedRef, type Ref } from 'vue'
@@ -13,9 +13,9 @@ import { computed, ref, shallowRef, type ComputedRef, type Ref } from 'vue'
 import type { PageAgent } from 'page-agent'
 import type { HttpRegistry } from '@/kernel'
 import {
-  fetchLauncherView,
+  fetchEntryView,
   fetchPageAgentSettings,
-  type LauncherStyle,
+  type EntryStyle,
   type MaskRule,
   type PageAgentSettingsView,
   type RouteInstruction,
@@ -85,17 +85,17 @@ export function pathAllowed(allowPaths: readonly string[], path: string): boolea
  * 这**不是**第二份默认值来源：真正的默认值只存在于后端 `settings.ts`，
  * 这里只是「视图还没拉回来」这一瞬间的占位，拉回后立即被覆盖。
  */
-const LAUNCHER_PLACEHOLDER: LauncherStyle = {
-  position: 'bottom-right',
+const ENTRY_PLACEHOLDER: EntryStyle = {
   label: '页面助手',
-  iconOnly: false,
-  color: 'var(--brand)',
-  textColor: '#ffffff',
+  showLabel: false,
+  accent: 'var(--brand)',
 }
 
 export interface PageAgentRuntime {
-  /** 启动器视图（免登录）；外壳据此决定入口是否出现。 */
-  readonly launcherView: Ref<{ enabled: boolean; ready: boolean; allowPaths: string[] } | null>
+  /** 入口视图（免登录）；外壳据此决定入口是否出现。 */
+  readonly entryView: Ref<{ enabled: boolean; ready: boolean; allowPaths: string[] } | null>
+  /** 插件总开关：入口按钮是否该出现在顶栏。 */
+  readonly available: ComputedRef<boolean>
   /** 完整设置（需登录）；打开面板/跑任务时才需要。 */
   readonly settings: Ref<PageAgentSettingsView | null>
   readonly loading: Ref<boolean>
@@ -105,12 +105,12 @@ export interface PageAgentRuntime {
   readonly history: Ref<AgentHistoryItem[]>
   readonly lastAnswer: Ref<{ success: boolean; text: string } | null>
   readonly panelOpen: Ref<boolean>
-  readonly launcher: Ref<LauncherStyle>
+  readonly entry: Ref<EntryStyle>
   readonly zIndex: Ref<number>
   readonly panelPolicy: Ref<'auto' | 'always' | 'none'>
   readonly canRun: ComputedRef<boolean>
-  /** 拉启动器视图；外壳启动时调用。 */
-  loadLauncher(): Promise<void>
+  /** 拉入口视图；外壳启动时调用。 */
+  loadEntry(): Promise<void>
   /** 拉完整设置并重建实例；设置页保存后调用。 */
   reload(): Promise<void>
   open(): Promise<void>
@@ -123,7 +123,7 @@ export interface PageAgentRuntime {
 
 export function createPageAgentRuntime(options: { http: HttpRegistry }): PageAgentRuntime {
   const http = options.http
-  const launcherView = shallowRef<{ enabled: boolean; ready: boolean; allowPaths: string[] } | null>(null)
+  const entryView = shallowRef<{ enabled: boolean; ready: boolean; allowPaths: string[] } | null>(null)
   const settings = shallowRef<PageAgentSettingsView | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -132,7 +132,7 @@ export function createPageAgentRuntime(options: { http: HttpRegistry }): PageAge
   const history = ref<AgentHistoryItem[]>([])
   const lastAnswer = ref<{ success: boolean; text: string } | null>(null)
   const panelOpen = ref(false)
-  const launcher = ref<LauncherStyle>({ ...LAUNCHER_PLACEHOLDER })
+  const entry = ref<EntryStyle>({ ...ENTRY_PLACEHOLDER })
   const zIndex = ref(2_147_483_000)
   const panelPolicy = ref<'auto' | 'always' | 'none'>('auto')
   const currentPath = ref(typeof location === 'undefined' ? '/' : location.pathname)
@@ -142,10 +142,13 @@ export function createPageAgentRuntime(options: { http: HttpRegistry }): PageAge
   let panelEl: HTMLElement | null = null
 
   const canRun = computed(() => {
-    const view = launcherView.value
+    const view = entryView.value
     if (!view || !view.enabled || !view.ready) return false
     return pathAllowed(view.allowPaths, currentPath.value)
   })
+
+  /** 入口是否出现只看总开关：未配置完整时也保留入口，点一下给出明确原因。 */
+  const available = computed(() => entryView.value?.enabled === true)
 
   function bindAgentEvents(instance: PageAgent): void {
     const sync = (): void => {
@@ -241,7 +244,7 @@ export function createPageAgentRuntime(options: { http: HttpRegistry }): PageAge
    * 首次真正要用时才把库拉下来。
    *
    * 静态 import 会把 ~500 kB 打进入口 vendor 包，每个页面都要付这笔带宽；
-   * 而助手只在用户点启动器/跑任务时才需要，按需加载后首屏完全不受影响。
+   * 而助手只在用户点顶栏入口/跑任务时才需要，按需加载后首屏完全不受影响。
    */
   let PageAgentClass: typeof import('page-agent').PageAgent | null = null
 
@@ -325,7 +328,7 @@ export function createPageAgentRuntime(options: { http: HttpRegistry }): PageAge
   async function open(): Promise<void> {
     refreshPath()
     if (!canRun.value) {
-      const view = launcherView.value
+      const view = entryView.value
       error.value = view?.enabled === false
         ? '页面助手已停用：在「页面助手」设置里打开总开关'
         : view?.ready === false
@@ -381,15 +384,15 @@ export function createPageAgentRuntime(options: { http: HttpRegistry }): PageAge
     await agent?.stop()
   }
 
-  async function loadLauncher(): Promise<void> {
+  async function loadEntry(): Promise<void> {
     try {
-      const view = await fetchLauncherView(http)
-      launcherView.value = { enabled: view.enabled, ready: view.ready, allowPaths: view.allowPaths }
-      launcher.value = { ...view.launcher }
+      const view = await fetchEntryView(http)
+      entryView.value = { enabled: view.enabled, ready: view.ready, allowPaths: view.allowPaths }
+      entry.value = { ...view.entry }
       zIndex.value = view.panel.zIndex
       panelPolicy.value = view.panelPolicy
     } catch (caught) {
-      error.value = caught instanceof Error ? caught.message : '读取页面助手启动器视图失败'
+      error.value = caught instanceof Error ? caught.message : '读取页面助手入口视图失败'
     }
   }
 
@@ -397,9 +400,9 @@ export function createPageAgentRuntime(options: { http: HttpRegistry }): PageAge
   async function reload(): Promise<void> {
     loading.value = true
     try {
-      const [view, config] = await Promise.all([fetchLauncherView(http), fetchPageAgentSettings(http)])
-      launcherView.value = { enabled: view.enabled, ready: view.ready, allowPaths: view.allowPaths }
-      launcher.value = { ...view.launcher }
+      const [view, config] = await Promise.all([fetchEntryView(http), fetchPageAgentSettings(http)])
+      entryView.value = { enabled: view.enabled, ready: view.ready, allowPaths: view.allowPaths }
+      entry.value = { ...view.entry }
       zIndex.value = view.panel.zIndex
       panelPolicy.value = view.panelPolicy
       settings.value = config
@@ -422,7 +425,8 @@ export function createPageAgentRuntime(options: { http: HttpRegistry }): PageAge
   }
 
   return {
-    launcherView,
+    entryView,
+    available,
     settings,
     loading,
     error,
@@ -431,11 +435,11 @@ export function createPageAgentRuntime(options: { http: HttpRegistry }): PageAge
     history,
     lastAnswer,
     panelOpen,
-    launcher,
+    entry,
     zIndex,
     panelPolicy,
     canRun,
-    loadLauncher,
+    loadEntry,
     reload,
     open,
     close,
