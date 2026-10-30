@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// 外观主题：把「界面长什么样」做成可配置项，画原型的人不写 CSS 也能改整套观感。
+// 外观主题设置区：颜色/圆角/密度的可视化配置 + AI 生成 + 实时预览。
 //
-// 三个入口合一：调色/圆角/密度（可视化）、AI 生成（一句话描述气质）、恢复默认。
-// 改动即时预览（写 CSS 变量），「保存并发布」才写回后端给所有人。
+// 它是「自定义设置面板」的样板：这类交互（改一个色值立即预览）不适合声明式字段，
+// 因此整块由插件自渲染、自保存；系统设置页只提供标题与外层定位。
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { MagicStick, Refresh } from '@element-plus/icons-vue'
@@ -124,20 +124,16 @@ async function generate(): Promise<void> {
 </script>
 
 <template>
-  <div class="page" v-loading="loading">
-    <header class="page-head">
-      <div>
-        <h1>外观主题</h1>
-        <p>品牌色、圆角、密度都存在后端，改完全站生效；这里调的是「一套界面的骨架」，页面本身仍然由 schema 决定。</p>
-      </div>
-      <div class="page-actions">
-        <el-tag v-if="dirty" type="warning" effect="plain">有未发布的改动</el-tag>
-        <el-tag v-else type="success" effect="plain">与线上一致</el-tag>
+  <div class="theme-panel" v-loading="loading">
+    <div class="theme-toolbar">
+      <el-tag v-if="dirty" type="warning" effect="plain">有未发布的改动</el-tag>
+      <el-tag v-else type="success" effect="plain">与线上一致</el-tag>
+      <div class="theme-toolbar__actions">
         <el-button v-if="aiEnabled" :icon="MagicStick" @click="openAi">AI 生成</el-button>
         <el-button :icon="Refresh" @click="resetAll">恢复默认</el-button>
         <el-button type="primary" :loading="saving" :disabled="!dirty" @click="publish">保存并发布</el-button>
       </div>
-    </header>
+    </div>
 
     <div class="theme-grid">
       <section class="panel">
@@ -242,6 +238,9 @@ async function generate(): Promise<void> {
 </template>
 
 <style scoped>
+.theme-panel { display: flex; flex-direction: column; gap: 14px; }
+.theme-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.theme-toolbar__actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .theme-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 16px; align-items: start; }
 .theme-preview { grid-column: 1 / -1; }
 .theme-rows { display: flex; flex-direction: column; gap: 10px; }

@@ -40,18 +40,18 @@
 
 | 文件 | 作用 |
 | --- | --- |
-| `index.ts` | 插件声明：注册路由/菜单、注册 `page-agent.runtime` 服务、向 `shell:topbar-actions` 贡献顶栏入口、跟随路由同步当前路径 |
+| `index.ts` | 插件声明：注册 `page-agent.runtime` 服务、向 `shell:topbar-actions` 贡献顶栏入口、向 `ctx.settings` 贡献设置区、跟随路由同步当前路径 |
 | `runtime.ts` | 全站唯一的 PageAgent 宿主：代理 fetch、配置→实例参数、面板 CSS 变量、历史/状态同步 |
 | `components/PageAgentEntry.vue` | 顶栏 AI 图标（全站唯一入口），外观来自入口视图 |
-| `routes.ts` | 唯一入口 `/system/page-agent`（系统工具组） |
-| `pages/PageAgentSettingsPage.vue` | 全部参数的可视化配置页 |
+| `settings.ts` | 设置区的字段声明（全部参数）、加载/保存、自检/试跑/清空密钥动作 |
+| `routes.ts` | 旧地址 `/system/page-agent` → `/system/settings?tab=assistant` 的跳转（不再有独立菜单） |
 
 两级加载对应两套可见性：入口视图免登录（决定「显不显示、长什么样」），
 完整设置需登录并在真正跑任务时才拉。保存后 `reload()` 重建实例，下一次任务立即用新参数。
 
 ## 界面参数清单
 
-页面 `/system/page-agent`（系统工具 → 页面助手）里的每一项都落到后端设置字段，不需要改代码：
+「系统工具 → 系统设置 → 页面助手」里的每一项都落到后端设置字段，不需要改代码：
 
 - **模型连接**：供应商地址、模型、API 密钥（留空沿用 / 显式清空）、单次调用超时、失败重试、额外请求体 JSON、具名 `tool_choice` 降级
 - **运行行为**：总开关、最大步数、步间隔、面板语言、内容遮罩、完成后追问下一任务、允许模型执行 JS、读站点 `llms.txt`

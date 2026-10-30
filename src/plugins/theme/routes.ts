@@ -1,25 +1,19 @@
-import type { MenuContribution, RouteContribution } from '@/kernel'
+import type { RouteContribution } from '@/kernel'
 
-/** 外观配置：一个页面就是全部入口（避免「布局设置里也能改色」这类重复入口）。 */
+/**
+ * 旧地址保活：外观设置已并入「系统设置 → 界面外观」。
+ *
+ * 同一个设置项只保留一个入口：侧栏不再出现「外观主题」菜单，
+ * 老收藏/老标签页仍能落到新位置。
+ */
 export const routes: RouteContribution[] = [
   {
     name: 'system-theme',
     path: '/system/theme',
-    component: () => import('./pages/ThemePage.vue'),
+    redirect: '/system/settings?tab=appearance',
     title: '外观主题',
     permission: 'system:theme:config',
-    meta: { icon: 'Brush', group: '系统工具' },
   },
 ]
 
-export const menus: MenuContribution[] = [
-  {
-    id: 'system-theme',
-    title: '外观主题',
-    path: '/system/theme',
-    icon: 'Brush',
-    group: '系统工具',
-    order: 90,
-    permission: 'system:theme:config',
-  },
-]
+export const menus: never[] = []

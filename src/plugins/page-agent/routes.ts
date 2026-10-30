@@ -1,30 +1,19 @@
-import type { MenuContribution, RouteContribution } from '@/kernel'
+import type { RouteContribution } from '@/kernel'
 
 /**
- * 只有一个入口：设置页。
+ * 旧地址保活：设置已并入「系统设置 → 页面助手」。
  *
- * 助手入口在外壳顶栏常驻（属于运行时 UI，不是菜单项），
- * 因此这里不再放「打开助手」之类第二个入口，避免同一个动作两处入口。
+ * 这里只留跳转，不再有独立页面与菜单——同一个设置项只能有一个入口。
+ * 顶栏的助手入口属于运行时 UI（`shell:topbar-actions` 槽位），不是菜单项。
  */
 export const routes: RouteContribution[] = [
   {
     name: 'page-agent-settings',
     path: '/system/page-agent',
-    component: () => import('./pages/PageAgentSettingsPage.vue'),
+    redirect: '/system/settings?tab=assistant',
     title: '页面助手',
     permission: 'system:page-agent:config',
-    meta: { icon: 'MagicStick', group: '系统工具' },
   },
 ]
 
-export const menus: MenuContribution[] = [
-  {
-    id: 'system-page-agent',
-    title: '页面助手',
-    path: '/system/page-agent',
-    icon: 'MagicStick',
-    group: '系统工具',
-    order: 95,
-    permission: 'system:page-agent:config',
-  },
-]
+export const menus: never[] = []

@@ -24,7 +24,7 @@ server/plugins/ai      AI 服务：读 Codex 配置、提示词库、/ai/*
 server/plugins/theme   外观服务：ui:theme 读写
 src/plugins/scada      画布页面 + 对外句柄 workbench.ts
 src/plugins/ai         右栏 AI 页签（槽位 scada:assistant）+ AI 工作台
-src/plugins/theme      外观主题页
+src/plugins/theme      外观主题设置区
 src/plugins/pages      通用页面 + 页面工厂
 ```
 
@@ -87,7 +87,7 @@ bind pump1.run=103
 ## 「画原型的人」怎么落地一套界面
 
 1. **页面工厂**（`/pages/studio`）：描述原型 → AI 生成 schema 草稿 → 改 JSON → 保存并上线；
-2. **外观主题**（`/system/theme`）：调色/圆角/密度，或一句话让 AI 生成，先预览再发布；
+2. **外观主题**（系统设置 → 界面外观）：调色/圆角/密度，或一句话让 AI 生成，先预览再发布；
 3. **AI 工作台**（`/ai/studio`）：行业口径不同就改提示词（比如 `page.schema` 的分组命名、权限码规则）；
 4. **组态画布**：右栏「AI 助手」说需求，生成的是指令集，可逐条看问题、可手工再调，
    满意后写入画布并保存。

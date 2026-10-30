@@ -2,6 +2,7 @@ import type { Router } from 'vue-router'
 import type { PluginDefinition } from '@/kernel'
 import { routes, menus } from './routes'
 import { createPageAgentRuntime } from './runtime'
+import { createPageAgentSettings } from './settings'
 import PageAgentEntry from './components/PageAgentEntry.vue'
 
 /**
@@ -11,7 +12,7 @@ import PageAgentEntry from './components/PageAgentEntry.vue'
  * - PageAgent 实例归插件服务，不塞进页面组件：换页不重建 agent，历史与中断状态不丢；
  * - 供应商与密钥走后端（`/page-agent/llm` 代理），浏览器里既没有 key 也没有供应商地址；
  * - 所有可调项（模型、步数、面板尺寸配色、入口外观、路径白名单、脱敏规则、附加指令）
- *   都是后端设置里的字段，界面可改，改完 `reload()` 立即生效；
+ *   都是后端设置里的字段，并通过 `ctx.settings` 贡献给系统设置页，改完 `reload()` 立即生效；
  * - 入口只有一个：外壳顶栏的 `shell:topbar-actions` 槽位（面板是它的展开态），
  *   全站所有页面共用同一处入口，不再另放角落浮标或菜单按钮。
  */
@@ -38,6 +39,10 @@ export const pageAgentPlugin: PluginDefinition = {
       component: PageAgentEntry,
       order: 10,
     })
+
+    // 设置不再单独建设置页：贡献给系统设置页的「页面助手」分组，
+    // 字段声明在 settings.ts，控件与必填校验由内核渲染。
+    ctx.settings.add(createPageAgentSettings({ http: ctx.http, runtime }))
 
     // 路径白名单按「当前真实路径」判定：路由换了就同步一次。
     const router = ctx.services.get<Router>('router')
