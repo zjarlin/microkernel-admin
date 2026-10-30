@@ -192,12 +192,22 @@ defineExpose({ toggleSidebar, columns })
 </template>
 
 <style scoped>
-.app-frame { display: flex; align-items: stretch; min-height: 100vh; width: 100%; background: var(--app-bg, #f4f6fa); }
+.app-frame {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  /* 外壳永远等于视口高度：内容超长时由中栏内部滚动，页面本身不长大。
+     否则侧栏（sticky + 100vh）会在长页面下方露出空白/底边。 */
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--app-bg, #f4f6fa);
+}
 .app-frame.is-dragging { cursor: col-resize; user-select: none; }
 .app-frame__sidebar { flex: none; min-width: 0; transition: width .22s ease; overflow: hidden; }
 .app-frame.is-dragging .app-frame__sidebar { transition: none; }
-.app-frame__center { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
-.app-frame__right { flex: none; min-width: 0; border-left: 1px solid var(--line, #e6ebf2); background: var(--surface, #fff); overflow: auto; }
+.app-frame__center { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.app-frame__right { flex: none; min-width: 0; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--line, #e6ebf2); background: var(--surface, #fff); overflow: hidden; }
 .app-frame__right.is-fullscreen { position: fixed; inset: 0; z-index: 60; width: 100%; max-width: none; border-left: 0; box-shadow: 0 24px 60px rgba(15, 23, 42, .28); }
 .app-frame__handle { flex: 0 0 5px; position: relative; cursor: col-resize; background: transparent; }
 .app-frame__handle::after { content: ''; position: absolute; inset: 0 2px; border-radius: 3px; background: transparent; transition: background .15s ease; }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 若依式标签页：记录访问过的页面，支持关闭单个 / 关闭其它 / 关闭全部。
 // 标签只是导航历史，不缓存页面实例（页面重进即重新取数，避免陈旧数据）。
-import { computed } from 'vue'
+import { computed, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Close } from '@element-plus/icons-vue'
 import { useTabsStore } from '@/stores/tabs'
@@ -11,6 +11,15 @@ const router = useRouter()
 const tabs = useTabsStore()
 
 const active = computed(() => route.path)
+
+// 标签多到溢出时，保证当前标签始终可见；滚动条本身隐藏（横向滚动仍然可用），
+// 否则标签栏下方会多出一条与内容无关的灰色滚动条。
+watch(active, async () => {
+  await nextTick()
+  const track = document.querySelector<HTMLElement>('.tags-view__track')
+  const current = track?.querySelector<HTMLElement>('.tags-view__item.is-active')
+  current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+}, { immediate: true })
 
 function close(path: string): void {
   const next = tabs.remove(path)
@@ -59,7 +68,8 @@ function closeAll(): void {
 
 <style scoped>
 .tags-view { display: flex; align-items: center; gap: 10px; padding: 8px 28px; background: var(--surface); border-bottom: 1px solid var(--line); }
-.tags-view__track { display: flex; align-items: center; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.tags-view__track { display: flex; align-items: center; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.tags-view__track::-webkit-scrollbar { display: none; }
 .tags-view__item {
   display: inline-flex; align-items: center; gap: 6px; flex: none;
   height: 28px; padding: 0 10px; border-radius: 7px; border: 1px solid var(--line);

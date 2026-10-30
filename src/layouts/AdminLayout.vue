@@ -237,7 +237,12 @@ function toggleTheme(): void {
             </el-tooltip>
           </div>
         </header>
-        <div :id="RIGHT_PANEL_HOST_ID" class="shell-rightbar__body"></div>
+        <!-- 布局设置占用整条右栏：宿主容器让位（display:none），否则 flex:1 会把设置面板推到最底部。 -->
+        <div
+          :id="RIGHT_PANEL_HOST_ID"
+          class="shell-rightbar__body"
+          :class="{ 'is-stashed': rightPanel.active?.id === 'shell.layout' }"
+        ></div>
         <LayoutSettingsPanel v-if="rightPanel.active?.id === 'shell.layout'" />
         <p v-else-if="!rightPanel.active" class="shell-rightbar__empty">
           选中画布图元、打开通用页面详情时，面板会出现在这里。
@@ -249,7 +254,7 @@ function toggleTheme(): void {
 
 <style scoped>
 /* 宽度由 @addzero/app-frame 的列求解决定，这里只负责把内容填满所在轨道。 */
-.sidebar { width: 100%; height: 100vh; background: #0f172a; color: #cbd5e1; display: flex; flex-direction: column; position: sticky; top: 0; z-index: 20; }
+.sidebar { width: 100%; height: 100%; background: #0f172a; color: #cbd5e1; display: flex; flex-direction: column; position: sticky; top: 0; z-index: 20; }
 .sidebar-head { height: 76px; display: flex; align-items: center; gap: 12px; padding: 0 20px; border-bottom: 1px solid rgba(148,163,184,.12); }
 .sidebar.is-collapsed .sidebar-head { padding: 0 12px; justify-content: center; }
 .logo { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: linear-gradient(135deg, #3b82f6, #22d3ee); color: #08111d; font-weight: 900; flex: 0 0 38px; }
@@ -274,7 +279,7 @@ function toggleTheme(): void {
 .collapse-button:hover { background: rgba(148,163,184,.14); color: #e2e8f0; }
 /* 中栏宽度由布局服务求解（右栏一开就让位），所以响应式按「容器宽度」判断，
    而不是按视口——视口 1600px 时中栏可能只有 880px。 */
-.main-area { min-width: 0; flex: 1; display: flex; flex-direction: column; container-type: inline-size; container-name: shell; }
+.main-area { min-width: 0; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; container-type: inline-size; container-name: shell; }
 .topbar { height: 76px; flex: 0 0 76px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 0 28px; background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 15; backdrop-filter: blur(12px); }
 .topbar-left, .topbar-right { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .breadcrumb { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--muted); white-space: nowrap; }
@@ -293,14 +298,16 @@ function toggleTheme(): void {
 .topbar-left { flex: 1 1 auto; }
 .user-meta strong { color: var(--app-text); font-size: 13px; }
 .user-meta small { color: var(--muted); font-size: 11px; }
-.content-area { flex: 1; padding: 28px; min-width: 0; }
-.shell-rightbar { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+/* 内容区：铺满剩余高度、只在自身内部滚动，与侧栏底边严格对齐。 */
+.content-area { flex: 1 1 auto; min-height: 0; min-width: 0; padding: 28px; overflow: auto; overscroll-behavior: contain; }
+.shell-rightbar { display: flex; flex-direction: column; flex: 1; height: 100%; min-height: 0; overflow: hidden; }
 .shell-rightbar__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 14px 14px 12px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 2; }
 .shell-rightbar__title { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .shell-rightbar__title strong { font-size: 14px; color: var(--app-text); }
 .shell-rightbar__title small { font-size: 11px; color: var(--muted); }
 .shell-rightbar__tools { display: flex; align-items: center; gap: 2px; flex: none; }
-.shell-rightbar__body { flex: 1; min-height: 0; overflow: auto; }
+.shell-rightbar__body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.shell-rightbar__body.is-stashed { display: none; }
 .shell-rightbar__empty { margin: 0; padding: 20px 16px; font-size: 12px; line-height: 1.8; color: var(--muted); }
 .page-skeleton { background: var(--surface); padding: 24px; border-radius: 16px; }
 .page-fade-enter-active, .page-fade-leave-active { transition: opacity .16s ease, transform .16s ease; }

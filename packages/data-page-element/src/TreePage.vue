@@ -140,6 +140,7 @@ const childrenProp = computed(() => treeSchema?.childrenProp ?? 'children')
 </template>
 
 <style scoped>
+.page { min-width: 0; }
 .crud-head { display: flex; align-items: center; gap: 6px; }
 .crud-head h1 { display: inline-flex; align-items: center; gap: 4px; }
 </style>

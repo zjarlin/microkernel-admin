@@ -67,7 +67,7 @@ function setFullscreen(fullscreen: boolean): void {
 </template>
 
 <style scoped>
-.layout-settings { display: flex; flex-direction: column; gap: 18px; padding: 16px; }
+.layout-settings { display: flex; flex-direction: column; gap: 18px; padding: 16px; flex: 1; min-height: 0; overflow: auto; }
 .layout-settings__group { border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
 .layout-settings__group h3 { margin: 0 0 10px; font-size: 13px; color: var(--app-text); letter-spacing: .02em; }
 .layout-settings__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--muted); }

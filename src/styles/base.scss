@@ -73,8 +73,14 @@ html.dark {
 }
 
 * { box-sizing: border-box; }
-html, body, #app { min-height: 100%; margin: 0; }
+/* 应用外壳自己管滚动：文档本身不滚，避免「页面长大、侧栏跟着跑」。
+   只有 .content-area 与显式声明的面板内部会滚动。 */
+html, body, #app { height: 100%; margin: 0; overflow: hidden; }
 body { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--app-bg); color: var(--app-text); -webkit-font-smoothing: antialiased; }
+/* 内容区滚动条收窄一点，避免遮住卡片圆角。 */
+.content-area { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.content-area::-webkit-scrollbar { width: 8px; }
+.content-area::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 999px; }
 button, input { font: inherit; }
 a { color: inherit; }
 code { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }

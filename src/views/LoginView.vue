@@ -75,7 +75,7 @@ function fill(username: string, password: string): void {
 </template>
 
 <style scoped>
-.login-page { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(420px, .85fr); background: #0b1220; }
+.login-page { height: 100%; min-height: 100dvh; overflow: auto; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(420px, .85fr); background: #0b1220; }
 .login-brand { position: relative; padding: 8vh 7vw; color: #e5e7eb; overflow: hidden; display: flex; flex-direction: column; }
 .login-brand::before { content: ''; position: absolute; inset: -30% 20% 30% -20%; background: radial-gradient(circle, rgba(59,130,246,.32), transparent 62%); }
 .login-brand::after { content: ''; position: absolute; width: 460px; height: 460px; right: -160px; bottom: -180px; border: 1px solid rgba(148,163,184,.22); border-radius: 50%; box-shadow: 0 0 0 70px rgba(148,163,184,.05), 0 0 0 140px rgba(148,163,184,.03); }

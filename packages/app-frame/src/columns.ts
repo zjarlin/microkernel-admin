@@ -28,8 +28,13 @@ export const SIDEBAR_AUTO_COLLAPSE = 1024
 export const RIGHTBAR_MIN = 300
 /** 右栏上限占整帧的比例。 */
 export const RIGHTBAR_MAX_RATIO = 0.7
-/** 右栏首次展开时占整帧的比例。 */
-export const RIGHTBAR_DEFAULT_RATIO = 0.45
+/**
+ * 右栏首次展开时占整帧的比例。
+ *
+ * 0.45（dsh 原值）在 1440 宽度下会吃掉 648px，中栏只剩 500 出头，表格立刻横向滚动；
+ * 这里收到 0.32，中栏仍能放下常规表格，需要更宽时用户自己拖。
+ */
+export const RIGHTBAR_DEFAULT_RATIO = 0.32
 
 /** 把面板宽度夹到契约区间内。 */
 export function clampWidth(px: number, min: number, max: number): number {

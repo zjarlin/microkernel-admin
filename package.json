@@ -29,6 +29,7 @@
     "element-plus": "^2.14.7",
     "hono": "^4.13.14",
     "nprogress": "^0.2.0",
+    "page-agent": "1.12.4",
     "pinia": "^3.0.4",
     "vue": "^3.5.44",
     "vue-router": "^4.6.4",
