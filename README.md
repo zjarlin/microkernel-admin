@@ -111,6 +111,15 @@ Vue 宿主
 
 插件开发细节见 [`docs/PLUGIN.md`](docs/PLUGIN.md)。
 
+## 找到某个页面的源码
+
+顶栏的「瞄准」按钮（**⌘/Ctrl + ⇧ + E**）是元素拾取器：激活后点页面上任何元素，
+直接给出 `文件:行:列`、组件链，以及「这一页由哪份 schema / 哪个插件提供」。
+配置驱动的页面没有业务 `.vue`，靠这条信息才不会在通用壳里白找。
+
+编译期把位置写进 DOM（`data-source-loc`），所以生产站点同样可用，不依赖 sourcemap。
+细节与边界见 [`docs/SOURCE-LOCATOR.md`](docs/SOURCE-LOCATOR.md)。
+
 ## 目录结构
 
 ```text
@@ -119,7 +128,9 @@ packages/                     # 可被别的项目依赖的工作区包
   data-page-element/          # Element Plus 适配：表格/查询栏/表单弹窗/左树
   ui-server/                  # Hono 外壳 + zod 配置 + node:sqlite 存储
   app-frame/                  # 三栏布局壳 + layout 面板服务（dsh ui-layout 的 Vue 移植）
+  nav-tree/                   # 任意层级导航树：森林构建/过滤/展开 + 无业务渲染组件
   scada-dsl/                  # 组态指令集（绘图 + 排版 + 画布），无 UI 依赖，可单独发布
+  source-locator/             # 元素 → 源码定位：编译期注入位置 + 浏览器拾取器，无业务符号
 src/
   kernel/                     # 与业务无关的微内核
   plugins/
@@ -127,6 +138,7 @@ src/
     system/                   # 若依式系统管理模块
     monitor/                  # 系统监控模块
     scada/                    # 组态画布工作台
+    source-finder/            # 元素拾取器（顶栏入口 + ⌘/Ctrl+⇧+E，定位源码）
     ai/                       # AI 插件：提示词库、画布指令生成、页面/主题生成
     theme/                    # 外观主题：颜色/圆角/密度（贡献到系统设置）
     page-agent/               # 页面助手：alibaba/page-agent 的宿主、顶栏入口与设置区

@@ -1,11 +1,26 @@
 import { fileURLToPath, URL } from 'node:url'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig, loadEnv } from 'vite'
+import { markSourceElements, sourceLocatorPlugin } from '@addzero/source-locator/vite'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   return {
-    plugins: [vue()],
+    plugins: [
+      vue({
+        // 拾取器要在浏览器里回答「这块 DOM 属于哪个组件」，这依赖 Vue 的
+        // `__vueParentComponent` 与 `__file`——生产构建默认会把它们裁掉。
+        // 必须走插件自己的 features 开关：直接 define `__VUE_PROD_DEVTOOLS__`
+        // 会被 plugin-vue 的默认值覆盖，产物里根本不会留下那两个属性。
+        features: { prodDevtools: true },
+        template: {
+          // 编译期把 data-source-loc="src/x.vue:12:3" 写进每个原生元素；
+          // 行列指向原文件真实位置，sourcemap 不因此偏移。
+          compilerOptions: { nodeTransforms: [markSourceElements()] },
+        },
+      }),
+      sourceLocatorPlugin(),
+    ],
     resolve: {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     },

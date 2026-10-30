@@ -27,6 +27,9 @@
     },
     {
       "path": "./packages/nav-tree"
+    },
+    {
+      "path": "./packages/source-locator"
     }
   ]
 }

@@ -34,7 +34,8 @@
     "vue": "^3.5.44",
     "vue-router": "^4.6.4",
     "zod": "^4.6.7",
-    "@addzero/nav-tree": "workspace:*"
+    "@addzero/nav-tree": "workspace:*",
+    "@addzero/source-locator": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
