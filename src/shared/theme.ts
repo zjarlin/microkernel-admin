@@ -40,12 +40,13 @@ export function useTheme() {
   return current
 }
 
-/** 取消浅色覆盖，交给 base.scss 的深色变量。 */
-const LIGHT_TOKENS = ['--app-bg', '--surface', '--app-text', '--muted'] as const
-
 /**
  * 把主题写成 CSS 变量。
- * 深色模式下不动背景/文字色：那套调色板由 `html.dark` 维护，主题只改品牌色与圆角密度。
+ *
+ * 品牌色 / 圆角 / 密度写在 `:root` 的内联样式上——它们在浅色和深色下都要生效。
+ * 背景、表面、正文、次要文字这组只属于浅色：写成一条 `:root:not(.dark)` 规则，
+ * 而不是内联样式。否则深色模式下内联值会盖住 `html.dark` 的调色板
+ * （表现就是「切了深色，右侧面板和卡片还是白的」）。
  */
 export function applyTheme(theme: UiTheme, dark: boolean): void {
   current.value = { ...theme }
@@ -56,14 +57,21 @@ export function applyTheme(theme: UiTheme, dark: boolean): void {
   root.style.setProperty('--radius', `${theme.radius}px`)
   root.style.setProperty('--content-pad', theme.density === 'compact' ? '18px' : theme.density === 'comfortable' ? '32px' : '28px')
   root.dataset.density = theme.density
-  if (dark) {
-    for (const token of LIGHT_TOKENS) root.style.removeProperty(token)
-    return
+
+  // 浅色调色板：只在未加 .dark 时生效，切换主题类即自动让位，无需再清理内联值。
+  const id = 'ui-theme-light-tokens'
+  let style = document.getElementById(id) as HTMLStyleElement | null
+  if (!style) {
+    style = document.createElement('style')
+    style.id = id
+    document.head.appendChild(style)
   }
-  root.style.setProperty('--app-bg', theme.appBg)
-  root.style.setProperty('--surface', theme.surface)
-  root.style.setProperty('--app-text', theme.text)
-  root.style.setProperty('--muted', theme.muted)
+  style.textContent = `:root:not(.dark){--app-bg:${theme.appBg};--surface:${theme.surface};`
+    + `--app-text:${theme.text};--muted:${theme.muted};}`
+  // 深色标记由调用方负责（store 的 apply 已处理），这里只用它做一次自检清理。
+  if (dark) {
+    for (const token of ['--app-bg', '--surface', '--app-text', '--muted']) root.style.removeProperty(token)
+  }
 }
 
 export interface ThemeResponse {
