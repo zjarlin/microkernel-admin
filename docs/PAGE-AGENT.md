@@ -30,7 +30,7 @@
 | `PUT` / `POST` | `/page-agent/settings` | `system:page-agent:config`；`apiKey` 留空 = 保留原值 |
 | `DELETE` | `/page-agent/settings/api-key` | `system:page-agent:config`（显式清空，和「留空保留」区分） |
 | `POST` | `/page-agent/probe` | `system:page-agent:config`，连通性自检 |
-| `POST` | `/page-agent/llm?page=<路径>` | 需登录；校验总开关、配置完整性、`allowPaths` 后再转发 |
+| `POST` | `/page-agent/llm?page=<路径>`（也接受 `/page-agent/llm/chat/completions`） | 需登录；校验总开关、配置完整性、`allowPaths` 后再转发 |
 
 设置存在 `ui_kv` 的 `page-agent:settings`。环境变量只在存储为空时**播种一次**，
 之后界面是唯一真源：`PAGE_AGENT_BASE_URL` / `PAGE_AGENT_MODEL` / `PAGE_AGENT_API_KEY` / `PAGE_AGENT_ENABLED`，
@@ -61,6 +61,16 @@
 
 必填星号来自 `el-form` 的同一份 `rules`，不靠提交后报错；默认值只有后端一份，
 页面「恢复默认值」直接采用服务端下发的 `defaults`。
+
+## 两个必须记住的契约
+
+1. **路径形状**：`@page-agent/llms` 自己会拼 `${baseURL}/chat/completions`，
+   因此服务端两种形状都收（`/page-agent/llm` 与 `/page-agent/llm/chat/completions`）。
+   只挂前者时真机请求会全 404——这是接入时实际踩过的坑。
+2. **响应形状**：宿主统一用 `{code,message,data}` 信封，而库只认裸 OpenAI 响应
+   （`data.choices[0]`）。`runtime.ts` 的 `proxyFetch` 负责解一层壳，
+   失败时转成 `{error:{message}}` 交回库里，让库按 AUTH/RATE_LIMIT 分类处理。
+   改代理返回结构时要同时确认这两点。
 
 ## 已知边界
 
