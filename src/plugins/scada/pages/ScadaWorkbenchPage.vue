@@ -1,12 +1,12 @@
 <script setup lang="ts">
-// 组态工作台：画面列表 + 图元库 + 画布 + 属性面板。
+// 组态工作台：画布 + 可收起的资源抽屉（画面 / 图元库）+ 外壳右栏（属性 / AI 助手）。
 //
 // 数据全部走后端契约（/scada/*，实现在 `server/plugins/scada/`）；
 // 画布求值与几何在 src/shared/scada/render.ts，页面只做交互编排。
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, DocumentAdd, Download, Refresh } from '@element-plus/icons-vue'
+import { Delete, DocumentAdd, Download, Operation, Refresh, Sort } from '@element-plus/icons-vue'
 import { useService } from '@/shared/service'
 import type { HttpClient } from '@/shared/http'
 import type {
@@ -27,7 +27,7 @@ import ScadaSymbolPalette from '@/components/scada/ScadaSymbolPalette.vue'
 import ScadaTagPicker from '@/components/scada/ScadaTagPicker.vue'
 import { RIGHT_PANEL_HOST_ID, closeRightPanel, openRightPanel, updateRightPanel, useRightPanel } from '@/shared/shell'
 import { getKernel } from '@/router'
-import { attachScadaWorkbench } from '../workbench'
+import { attachScadaWorkbench, toggleScadaPanel, useScadaWorkbench, SCADA_PANEL_ID } from '../workbench'
 
 const rightPanel = useRightPanel()
 
@@ -40,7 +40,7 @@ function deepClone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
-const INSPECTOR_PANEL_ID = 'scada.inspector'
+const INSPECTOR_PANEL_ID = SCADA_PANEL_ID
 /** 右栏宿主就绪后才挂 Teleport，避免目标还未渲染就先挂载。 */
 const inspectorReady = ref(false)
 
@@ -67,6 +67,10 @@ const tagPickerVisible = ref(false)
 const tagPickerSlot = ref<string | null>(null)
 const loadError = ref<string | null>(null)
 const canvasHost = ref<HTMLElement | null>(null)
+
+/** 左侧资源抽屉：默认收起，画布拿满宽度（CAD/组态王的空间怎么都不够用）。 */
+const railOpen = ref(false)
+const railTab = ref<'screens' | 'symbols'>('symbols')
 
 const symbolMap = computed(() => {
   const map: Record<string, ScadaSymbolDefinition> = {}
@@ -179,7 +183,7 @@ async function openScreen(screenId: number): Promise<void> {
     selectedIds.value = []
     dirty.value = false
     loadError.value = null
-    fitToWidth()
+    fitToView()
   } catch (error) {
     loadError.value = describeError(error, '读取画面详情失败')
   } finally {
@@ -220,20 +224,18 @@ const inspectorHint = computed(() => {
 
 const inspectorOpen = computed(() => rightPanel.active?.id === INSPECTOR_PANEL_ID)
 
-/** 右栏页签：属性 / AI 助手（AI 页签来自 ai 插件贡献的槽位，插件禁用即消失）。 */
-const panelTab = ref<'inspector' | 'ai'>('inspector')
+/** 右栏页签：属性 / AI 助手。页签状态放在 workbench 模块里共享——
+ *  外部入口（工具条、页面助手）要能把右栏切到这个页签，只有一份真相才不会打架。 */
+const { panelTab } = useScadaWorkbench()
 const assistantSlots = computed(() => getKernel()?.slotContributions('scada:assistant') ?? [])
 const detachWorkbench = ref<null | (() => void)>(null)
 
-/** 右栏被关掉后的唯一重开入口（画布工具条上的「属性」）。 */
-function toggleInspector(): void {
-  if (inspectorOpen.value) {
-    closeRightPanel(INSPECTOR_PANEL_ID)
-    return
-  }
-  openRightPanel({ id: INSPECTOR_PANEL_ID, title: '图元属性', hint: inspectorHint.value })
+/** 工具条上的「属性」：开右栏并切到属性页签；已开且停在属性页签时再点即收起。 */
+function openInspector(): void {
+  toggleScadaPanel('inspector', inspectorHint.value)
 }
 
+/** 工具条上的「AI」：同一右栏的同一条轨道，只是切到 AI 页签（AI 页签来自 ai 插件的槽位）。 */
 // 选中变化只更新右栏标题栏的说明，不重开面板、不重置用户拖好的宽度。
 watch(inspectorHint, (hint) => updateRightPanel(INSPECTOR_PANEL_ID, { hint }))
 
@@ -253,9 +255,33 @@ onMounted(async () => {
       selectedIds.value = []
       dirty.value = true
     },
+    readScreenId: () => currentScreen.value?.id ?? null,
+    /** AI 在服务端改完画面后，页面上这份视图要重新拉一次才能看到结果。 */
+    reload: async () => {
+      const id = currentScreen.value?.id
+      if (!id) return
+      const detail = await http.request<ScadaScreenDetail>(`/scada/screen?screenId=${id}`)
+      currentScreen.value = detail
+      document.value = parseScadaDocument(detail.documentJson)
+      selectedIds.value = []
+      dirty.value = false
+      fitToView()
+    },
+    openPanel: (tab, hint) => {
+      if (tab === 'ai' && !assistantSlots.value.length) return false
+      panelTab.value = tab
+      openRightPanel({
+        id: INSPECTOR_PANEL_ID,
+        title: tab === 'ai' ? 'AI 助手' : '画布面板',
+        hint: hint ?? inspectorHint.value,
+      })
+      return true
+    },
+    closePanel: () => closeRightPanel(INSPECTOR_PANEL_ID),
   })
-  // 属性面板进外壳右栏：画布只保留「资源轨 + 画布」两列，宽度由布局服务统一求解。
-  openRightPanel({ id: INSPECTOR_PANEL_ID, title: '画布面板', hint: inspectorHint.value })
+  // 属性面板进外壳右栏，但默认**不打开**：一进页面就占掉 300+px 与「画布吃满」冲突，
+  // 用户点工具条上的「属性 / AI」才开，关掉即一像素不留（宽度由布局服务统一求解）。
+  panelTab.value = 'inspector'
   void nextTick(() => {
     inspectorReady.value = window.document.getElementById(RIGHT_PANEL_HOST_ID) !== null
   })
@@ -553,17 +579,23 @@ function clearBinding(slot: string): void {
 
 // ---------------- 视图 ----------------
 
-/** 按容器宽度算缩放：画布 1920 宽在窄栏里默认会裁掉右侧图元。 */
-function fitToWidth(): void {
+/**
+ * 适应画面：同时按宽高算比例取小值。
+ *
+ * 只按宽度算的话，16:9 的画布放到宽而矮的视口里会纵向溢出，编辑器底部被推出可视区；
+ * 反之亦然。缩放必须是外层 `transform: scale()`（见 `ScadaCanvas`），逐元素乘 zoom 会让表格溢出。
+ */
+function fitToView(): void {
   const host = canvasHost.value
   if (!host) {
     zoom.value = 1
     return
   }
-  const width = host.clientWidth - 24
-  if (width <= 0) return
-  const ratio = width / document.value.canvas.width
-  zoom.value = Math.min(1, Math.max(0.2, Math.round(ratio * 100) / 100))
+  const width = host.clientWidth - 16
+  const height = host.clientHeight - 16
+  if (width <= 0 || height <= 0) return
+  const ratio = Math.min(width / document.value.canvas.width, height / document.value.canvas.height)
+  zoom.value = Math.min(2, Math.max(0.1, Math.round(ratio * 100) / 100))
 }
 
 // ---------------- 导出 ----------------
@@ -587,120 +619,203 @@ function exportSvg(): void {
 </script>
 
 <template>
-  <div class="page scada-page">
-    <header class="page-head">
-      <div>
-        <h1>组态画布</h1>
-        <p>图元库、画面文档与通道变量都走后端契约；画布求值与交互与 okmy_dics 组态一致。</p>
-      </div>
-      <div class="page-actions">
-        <el-button :icon="Refresh" :loading="loading" @click="refreshAll">刷新</el-button>
-        <el-button :icon="DocumentAdd" @click="createScreen">新建画面</el-button>
-        <el-button :icon="Download" @click="exportSvg">导出 SVG</el-button>
-        <el-button type="primary" :loading="saving" :disabled="!currentScreen" @click="saveScreen">保存</el-button>
-      </div>
-    </header>
-
-    <el-alert v-if="loadError" type="error" :closable="false" :title="loadError" show-icon />
-
-    <div class="scada-layout">
-      <aside class="panel scada-pane">
-        <div class="panel-title">
-          <h2>画面</h2>
-          <div class="scada-pane-actions">
-            <el-button size="small" text :disabled="!currentScreen" @click="renameScreen">重命名</el-button>
-            <el-button size="small" text type="danger" :icon="Delete" :disabled="!currentScreen" @click="deleteScreen" />
-          </div>
-        </div>
-        <div class="scada-screens">
-          <button
-            v-for="item in screens"
-            :key="item.id"
-            type="button"
-            class="scada-screen-item"
-            :class="{ 'is-active': item.id === currentScreen?.id }"
-            @click="selectScreen(item.id)"
+  <div class="scada-page" v-loading="loading">
+    <!-- 唯一一条工具条：返回态在页签里，这里只留「文件 + 编辑 + 视图 + 右栏」。
+         没有页头、没有面包屑、没有大标题行——和 CAD 一样，每一像素都还给画布。 -->
+    <div class="scada-bar">
+      <div class="scada-bar__group">
+        <el-tooltip content="资源抽屉：画面与图元库" placement="bottom" :show-after="400">
+          <el-button
+            size="small"
+            :type="railOpen ? 'primary' : 'default'"
+            :plain="railOpen"
+            :icon="Operation"
+            @click="railOpen = !railOpen"
           >
-            <span class="scada-screen-item__name">{{ item.name }}</span>
-            <span class="scada-screen-item__meta">{{ item.widgetCount }} 图元</span>
+            资源
+          </el-button>
+        </el-tooltip>
+        <el-dropdown trigger="click" @command="(command: string) => command === 'new' ? createScreen() : renameScreen()">
+          <button class="scada-title" type="button" :title="`${currentScreen?.name ?? '未选择画面'} · 点击管理画面`">
+            <strong>{{ currentScreen?.name ?? '未选择画面' }}</strong>
+            <em :class="{ 'is-dirty': dirty }">{{ dirty ? '未保存' : `v${currentScreen?.documentVersion ?? 0}` }}</em>
           </button>
-          <p v-if="!screens.length" class="muted scada-empty">还没有画面，点「新建画面」开始。</p>
-        </div>
-        <div class="panel-title scada-palette-head"><h2>图元库</h2></div>
-        <ScadaSymbolPalette
-          :symbols="symbols"
-          :loading="loading"
-          :external-source="symbolSource"
-          @add="addSymbol"
-        />
-      </aside>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="new" :icon="DocumentAdd">新建画面</el-dropdown-item>
+              <el-dropdown-item command="rename" :disabled="!currentScreen">重命名</el-dropdown-item>
+              <el-dropdown-item v-if="currentScreen" divided :icon="Delete" @click="deleteScreen">删除画面</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
 
-      <section class="panel scada-pane scada-pane--canvas" @dragover.prevent @drop="onDrop">
-        <div class="scada-bar">
-          <div class="scada-bar__left">
-            <el-checkbox v-model="snapEnabled" size="small">栅格吸附</el-checkbox>
-            <el-checkbox v-model="guideEnabled" size="small">对齐参考线</el-checkbox>
-            <span class="muted">
-              {{ document.widgets.length }} 个图元 · {{ boundSlotCount }} 个绑定槽位 ·
-              {{ resolvedTagCount }} 个变量（可写 {{ writableTagCount }}）
-            </span>
-          </div>
-          <div class="scada-bar__right">
-            <el-button-group>
-              <el-button size="small" :disabled="selectedIds.length !== 1" @click="changeZIndex(-1)">下移</el-button>
-              <el-button size="small" :disabled="selectedIds.length !== 1" @click="changeZIndex(1)">上移</el-button>
-            </el-button-group>
-            <el-button size="small" :disabled="!selectedIds.length" @click="rotateSelected">旋转</el-button>
-            <el-button size="small" :disabled="!selectedIds.length" @click="deleteSelected">删除</el-button>
-            <el-button size="small" :type="inspectorOpen ? 'primary' : 'default'" :plain="inspectorOpen" @click="toggleInspector">
-              属性
-            </el-button>
-            <el-button size="small" @click="fitToWidth">适应宽度</el-button>
-            <el-slider v-model="zoom" class="scada-zoom" :min="0.2" :max="2" :step="0.05" size="small" :show-tooltip="false" />
-          </div>
+      <span class="scada-divider" />
+
+      <div class="scada-bar__group">
+        <el-checkbox v-model="snapEnabled" size="small">吸附</el-checkbox>
+        <el-checkbox v-model="guideEnabled" size="small">参考线</el-checkbox>
+        <span class="scada-stat muted">
+          {{ document.widgets.length }} 图元 · {{ boundSlotCount }} 绑定 · {{ resolvedTagCount }} 变量（可写 {{ writableTagCount }}）
+        </span>
+      </div>
+
+      <span class="scada-spacer" />
+
+      <div class="scada-bar__group">
+        <el-button-group>
+          <el-tooltip content="下移一层" placement="bottom">
+            <el-button size="small" :disabled="selectedIds.length !== 1" @click="changeZIndex(-1)">下移</el-button>
+          </el-tooltip>
+          <el-tooltip content="上移一层" placement="bottom">
+            <el-button size="small" :disabled="selectedIds.length !== 1" @click="changeZIndex(1)">上移</el-button>
+          </el-tooltip>
+        </el-button-group>
+        <el-button size="small" :disabled="!selectedIds.length" @click="rotateSelected">旋转</el-button>
+        <el-button size="small" :disabled="!selectedIds.length" @click="deleteSelected">删除</el-button>
+      </div>
+
+      <div class="scada-bar__group scada-zoom">
+        <el-tooltip content="缩小" placement="bottom">
+          <el-button size="small" text @click="zoom = Math.max(0.1, Math.round((zoom - 0.1) * 100) / 100)">−</el-button>
+        </el-tooltip>
+        <el-slider v-model="zoom" :min="0.1" :max="2" :step="0.05" size="small" :show-tooltip="false" class="scada-zoom__slider" />
+        <el-tooltip content="放大" placement="bottom">
+          <el-button size="small" text @click="zoom = Math.min(2, Math.round((zoom + 0.1) * 100) / 100)">＋</el-button>
+        </el-tooltip>
+        <span class="scada-stat muted scada-zoom__value">{{ Math.round(zoom * 100) }}%</span>
+        <el-tooltip content="适应画面（宽高同时利用）" placement="bottom">
+          <el-button size="small" :icon="Sort" @click="fitToView">适应</el-button>
+        </el-tooltip>
+      </div>
+
+      <span class="scada-divider" />
+
+      <div class="scada-bar__group">
+        <el-tooltip content="属性面板（右栏）" placement="bottom">
+          <el-button
+            size="small"
+            :type="inspectorOpen && panelTab === 'inspector' ? 'primary' : 'default'"
+            :plain="inspectorOpen && panelTab === 'inspector'"
+            @click="openInspector"
+          >
+            属性
+          </el-button>
+        </el-tooltip>
+        <!-- AI 不在这里放第二个入口：全站唯一的 AI 入口在顶栏（页面助手旁边），
+             工具条只留「属性」，否则同一个动作会有两条路径。 -->
+      </div>
+
+      <span class="scada-divider" />
+
+      <div class="scada-bar__group">
+        <el-button size="small" :icon="Refresh" @click="refreshAll">刷新</el-button>
+        <el-button size="small" :icon="Download" @click="exportSvg">导出 SVG</el-button>
+        <el-button size="small" type="primary" :loading="saving" :disabled="!currentScreen" @click="saveScreen">保存</el-button>
+      </div>
+    </div>
+
+    <el-alert v-if="loadError" type="error" :closable="false" :title="loadError" show-icon class="scada-alert" />
+
+    <!-- 画布区：唯一一列。资源抽屉浮在上面（不占宽度），画布始终吃满。 -->
+    <div class="scada-stage" @dragover.prevent @drop="onDrop">
+      <aside v-show="railOpen" class="scada-rail">
+        <div class="scada-rail__tabs">
+          <button
+            type="button"
+            class="scada-rail__tab"
+            :class="{ 'is-active': railTab === 'symbols' }"
+            title="图元库：点一下加到画布，或拖到指定位置"
+            @click="railTab = 'symbols'"
+          >
+            <el-icon :size="14"><Operation /></el-icon>
+            <span>图元库</span>
+          </button>
+          <button
+            type="button"
+            class="scada-rail__tab"
+            :class="{ 'is-active': railTab === 'screens' }"
+            :title="`画面（${screens.length}）`"
+            @click="railTab = 'screens'"
+          >
+            <el-icon :size="14"><Sort /></el-icon>
+            <span>画面</span>
+          </button>
         </div>
 
-        <div ref="canvasHost" class="scada-canvas-host">
-          <ScadaCanvas
-            v-model:selectedIds="selectedIds"
-            :document="document"
-            :symbols="symbolMap"
-            :values="canvasValues"
-            :zoom="zoom"
-            :snap="snapEnabled"
-            :guides="guideEnabled"
-            @changed="dirty = true"
-            @update:zoom="zoom = $event"
+        <div v-show="railTab === 'symbols'" class="scada-rail__body">
+          <ScadaSymbolPalette
+            :symbols="symbols"
+            :loading="loading"
+            :external-source="symbolSource"
+            @add="addSymbol"
           />
         </div>
-      </section>
 
-      <!-- 右栏内容投到外壳面板：属性与 AI 助手同处一条轨道，可拖宽、可全屏。 -->
-      <Teleport v-if="inspectorReady" :to="`#${RIGHT_PANEL_HOST_ID}`">
-        <el-tabs v-model="panelTab" class="scada-panel-tabs">
-          <el-tab-pane label="属性" name="inspector">
-            <ScadaInspector
-              :document="document"
-              :widget="selectedWidget"
-              :symbol="selectedSymbol"
-              :tag-by-id="tagById"
-              :selected-count="selectedIds.length"
-              @update-widget="dirty = true"
-              @update-canvas="dirty = true"
-              @pick-tag="pickTag"
-              @clear-binding="clearBinding"
-              @delete="deleteSelected"
-              @duplicate="duplicateSelected"
-              @rotate="rotateSelected"
-              @toggle-lock="toggleLock"
-            />
-          </el-tab-pane>
-          <el-tab-pane v-if="assistantSlots.length" label="AI 助手" name="ai">
-            <component :is="slot.component" v-for="slot in assistantSlots" :key="slot.id" />
-          </el-tab-pane>
-        </el-tabs>
-      </Teleport>
+        <div v-show="railTab === 'screens'" class="scada-rail__body">
+          <div class="scada-screens">
+            <button
+              v-for="item in screens"
+              :key="item.id"
+              type="button"
+              class="scada-screen-item"
+              :class="{ 'is-active': item.id === currentScreen?.id }"
+              @click="selectScreen(item.id)"
+            >
+              <span class="scada-screen-item__name">{{ item.name }}</span>
+              <span class="scada-screen-item__meta">{{ item.widgetCount }} 图元</span>
+            </button>
+            <p v-if="!screens.length" class="muted scada-empty">还没有画面，点标题右侧「新建画面」开始。</p>
+          </div>
+          <div class="scada-rail__actions">
+            <el-button size="small" :icon="DocumentAdd" @click="createScreen">新建画面</el-button>
+            <el-button size="small" :disabled="!currentScreen" @click="renameScreen">重命名</el-button>
+            <el-button size="small" type="danger" plain :icon="Delete" :disabled="!currentScreen" @click="deleteScreen" />
+          </div>
+        </div>
+      </aside>
+
+      <div ref="canvasHost" class="scada-canvas-host">
+        <ScadaCanvas
+          v-model:selectedIds="selectedIds"
+          :document="document"
+          :symbols="symbolMap"
+          :values="canvasValues"
+          :zoom="zoom"
+          :snap="snapEnabled"
+          :guides="guideEnabled"
+          @changed="dirty = true"
+          @update:zoom="zoom = $event"
+        />
+      </div>
     </div>
+
+    <!-- 右栏内容投到外壳面板：属性与 AI 助手同处一条轨道，可拖宽、可全屏。
+         默认关闭，点工具条上的「属性 / AI」才开——省下的宽度全给画布。 -->
+    <Teleport v-if="inspectorReady" :to="`#${RIGHT_PANEL_HOST_ID}`">
+      <el-tabs v-model="panelTab" class="scada-panel-tabs">
+        <el-tab-pane label="属性" name="inspector">
+          <ScadaInspector
+            :document="document"
+            :widget="selectedWidget"
+            :symbol="selectedSymbol"
+            :tag-by-id="tagById"
+            :selected-count="selectedIds.length"
+            @update-widget="dirty = true"
+            @update-canvas="dirty = true"
+            @pick-tag="pickTag"
+            @clear-binding="clearBinding"
+            @delete="deleteSelected"
+            @duplicate="duplicateSelected"
+            @rotate="rotateSelected"
+            @toggle-lock="toggleLock"
+          />
+        </el-tab-pane>
+        <el-tab-pane v-if="assistantSlots.length" label="AI 助手" name="ai">
+          <component :is="slot.component" v-for="slot in assistantSlots" :key="slot.id" />
+        </el-tab-pane>
+      </el-tabs>
+    </Teleport>
 
     <ScadaTagPicker
       v-model="tagPickerVisible"
@@ -712,6 +827,68 @@ function exportSvg(): void {
     />
   </div>
 </template>
+
+<style scoped>
+/* 一列到底：工具条定高，舞台吃满剩余，滚动只发生在画布内部。 */
+.scada-page { display: flex; flex-direction: column; min-width: 0; min-height: 0; flex: 1 1 auto; height: 100%; background: var(--app-bg); }
+.scada-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: none;
+  padding: 7px 12px; background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.scada-bar__group { display: flex; align-items: center; gap: 8px; }
+.scada-spacer { flex: 1 1 auto; }
+.scada-divider { width: 1px; height: 18px; background: var(--line); flex: none; }
+.scada-stat { font-size: 11px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.scada-title {
+  display: inline-flex; align-items: center; gap: 8px; max-width: 340px;
+  padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); color: var(--app-text); cursor: pointer;
+}
+.scada-title:hover { border-color: var(--brand); }
+.scada-title strong { font: 600 13px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scada-title em { font-style: normal; font-size: 11px; color: var(--muted); flex: none; }
+.scada-title em.is-dirty { color: #f59e0b; }
+.scada-zoom { flex: none; }
+.scada-zoom__slider { width: 110px; }
+.scada-zoom__value { min-width: 34px; text-align: right; }
+.scada-alert { margin: 8px 12px 0; }
+
+.scada-stage { position: relative; flex: 1 1 auto; min-height: 0; display: flex; }
+.scada-canvas-host { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; }
+
+/* 资源抽屉：浮在画布上，关掉即一像素不留。 */
+.scada-rail {
+  position: absolute; top: 10px; left: 10px; bottom: 10px; width: 252px; z-index: 5;
+  display: flex; flex-direction: column; min-height: 0;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: 0 18px 40px rgba(2, 6, 23, .28); backdrop-filter: blur(6px);
+}
+.scada-rail__tabs { display: flex; gap: 2px; padding: 6px; border-bottom: 1px solid var(--line); }
+.scada-rail__tab {
+  flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  padding: 6px 4px; border: 1px solid transparent; border-radius: 7px;
+  background: transparent; color: var(--muted); font-size: 12px; cursor: pointer;
+}
+.scada-rail__tab:hover { color: var(--app-text); background: var(--hover); }
+.scada-rail__tab.is-active { color: var(--brand); border-color: var(--line); background: var(--surface); }
+.scada-rail__body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 10px; display: flex; flex-direction: column; }
+.scada-rail__actions { display: flex; align-items: center; gap: 6px; padding-top: 10px; border-top: 1px solid var(--line); margin-top: 10px; }
+.scada-screens { display: flex; flex-direction: column; gap: 3px; }
+.scada-screen-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 9px; border: 1px solid transparent; border-radius: 7px;
+  background: transparent; color: var(--app-text); font-size: 12px; cursor: pointer; text-align: left;
+}
+.scada-screen-item:hover { background: rgba(99, 102, 241, .08); }
+.scada-screen-item.is-active { border-color: rgba(99, 102, 241, .45); background: rgba(99, 102, 241, .12); }
+.scada-screen-item__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scada-screen-item__meta { color: var(--muted); font-size: 11px; flex: none; }
+.scada-empty { font-size: 12px; margin: 4px 0; }
+.scada-panel-tabs { padding: 0 12px 12px; }
+.scada-panel-tabs :deep(.el-tabs__header) { margin-bottom: 10px; position: sticky; top: 0; background: var(--surface); z-index: 1; }
+@media (max-width: 1400px) { .scada-stat { display: none; } }
+</style>
 
 <style scoped>
 .scada-page { min-width: 0; }

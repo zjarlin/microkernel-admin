@@ -9,8 +9,12 @@
 // - 完整设置（需登录）：供应商、模型、提示词、脱敏规则，只在真正要跑任务时才拉，
 //   并且配置改动后 `reload()` 能让下一次任务立即用上新参数。
 import { computed, ref, shallowRef, type ComputedRef, type Ref } from 'vue'
+import { ElMessageBox } from 'element-plus'
 // 只引类型：库本身按需加载（约 500 kB），首屏不该为「可能用不到」的助手付费。
-import type { PageAgent } from 'page-agent'
+import type { PageAgent, PageAgentTool } from 'page-agent'
+import type { CanvasDrawTool } from '@/plugins/ai/canvas-tool'
+// 与 page-agent 共享同一份 zod（库内部用的就是 `zod/v4`）；各引一份会出现两套 schema 类型。
+import * as z from 'zod/v4'
 import type { HttpRegistry } from '@/kernel'
 import {
   fetchEntryView,
@@ -121,7 +125,14 @@ export interface PageAgentRuntime {
   syncPath(path: string): void
 }
 
-export function createPageAgentRuntime(options: { http: HttpRegistry }): PageAgentRuntime {
+export function createPageAgentRuntime(options: {
+  http: HttpRegistry
+  /**
+   * 画布工具：由 `ai` 插件注册的服务。用惰性函数拿（而不是直接传实例），
+   * 因为插件启动顺序由内核决定——这里只声明「需要时去取」，不假设谁先谁后。
+   */
+  canvasTool?: (() => CanvasDrawTool | null) | undefined
+}): PageAgentRuntime {
   const http = options.http
   const entryView = shallowRef<{ enabled: boolean; ready: boolean; allowPaths: string[] } | null>(null)
   const settings = shallowRef<PageAgentSettingsView | null>(null)
@@ -240,6 +251,49 @@ export function createPageAgentRuntime(options: { http: HttpRegistry }): PageAge
     root.setProperty('text-align', 'left')
   }
 
+  function canvasDrawTool(): CanvasDrawTool | null {
+    try {
+      return options.canvasTool?.() ?? null
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * 把画布工具包成 PageAgent 的 `customTools`。
+   *
+   * 用页面的 zod 实例构造 schema（与库共享同一份 zod，避免出现两份 zod 导致类型/校验错位）；
+   * 描述里写清「什么情况该用」——模型只会看见描述，看不见我们的注释。
+   */
+  function canvasTools(): Record<string, PageAgentTool> {
+    return {
+      draw_on_scada_canvas: {
+        description:
+          '在当前打开的组态画布上按自然语言画图或排版（新增图元、对齐、改间距、补仪表等）。' +
+          '指令会经过服务端指令集校验后直接写到画布；写完之后不要自动保存，交给用户点「保存」。' +
+          '如果用户的要求缺关键参数（量程、单位、点位号），先用 ask_user 问清楚再画。',
+        inputSchema: z.object({
+          instruction: z.string().describe('要画什么/改哪里，一句话即可，例如「把三台泵排成一行，间距一致」'),
+          promptId: z.enum(['scada.draw', 'scada.layout']).optional().describe('scada.draw 画新内容；scada.layout 只做排版修正'),
+        }),
+        execute: async (input: { instruction: string; promptId?: 'scada.draw' | 'scada.layout' }) => {
+          // 每次调用现取工具：助手实例是长生命的，而「打开的画布」随时在变，
+          // 把工具在构造时固定下来会出现「先在别的页开了助手，回画布页却不会画」。
+          const tool = canvasDrawTool()
+          if (!tool) return '当前没有可用的画布工具（`ai` 插件未启用）。'
+          const outcome = await tool.run(input.instruction, { promptId: input.promptId ?? 'scada.draw' })
+          const lines = [outcome.text]
+          if (outcome.applied.length) lines.push(`已应用指令：${outcome.applied.map((line) => `\n- ${line}`).join('')}`)
+          const problems = outcome.issues.filter((item) => item.severity === 'error')
+          if (problems.length) {
+            lines.push(`未通过校验：${problems.map((item) => `\n- 第 ${item.line} 行：${item.message}`).join('')}`)
+          }
+          return lines.join('\n')
+        },
+      },
+    }
+  }
+
   /**
    * 首次真正要用时才把库拉下来。
    *
@@ -276,6 +330,9 @@ export function createPageAgentRuntime(options: { http: HttpRegistry }): PageAge
       enableMask: config.enableMask,
       promptForNextTask: config.promptForNextTask,
       customFetch: proxyFetch,
+      // 画布工具：在组态画布页把「按自然语言改画布」交给当前这个对话框，
+      // 不另开助手、不复用第二个密钥。没有打开画布时工具会给出人话提示而不是瞎点 DOM。
+      ...(options.canvasTool ? { customTools: canvasTools() } : {}),
       experimentalScriptExecutionTool: config.experimentalScriptExecution,
       experimentalLlmsTxt: config.experimentalLlmsTxt,
       ...(config.customSystemPrompt ? { customSystemPrompt: config.customSystemPrompt } : {}),
@@ -300,6 +357,18 @@ export function createPageAgentRuntime(options: { http: HttpRegistry }): PageAge
         ? { transformPageContent: (content: string) => maskContent(content, config.maskRules) }
         : {}),
     })
+
+    // 缺参追问走对话框而不是 `window.prompt`：模型问一句、人答一句，答完继续跑同一个任务。
+    // `onAskUser` 是实例属性（库在构造后按它决定是否保留 ask_user 工具），不是 config 字段。
+    agent.onAskUser = (question: string) =>
+      ElMessageBox.prompt(question, '页面助手提问', {
+        confirmButtonText: '回答',
+        cancelButtonText: '跳过',
+        inputPlaceholder: '直接回答即可，留空表示跳过',
+        distinguishCancelAndClose: true,
+      })
+        .then((result) => result.value ?? '')
+        .catch(() => '（用户没有回答，请自行决定或先完成其它步骤）')
 
     bindAgentEvents(agent)
     panelEl = agent.panel.wrapper

@@ -4,6 +4,7 @@ import { routes, menus } from './routes'
 import { createPageAgentRuntime } from './runtime'
 import { createPageAgentSettings } from './settings'
 import PageAgentEntry from './components/PageAgentEntry.vue'
+import type { CanvasDrawTool } from '@/plugins/ai/canvas-tool'
 
 /**
  * 页面助手插件：把 alibaba/page-agent 装成后台里的一个可停用能力。
@@ -23,12 +24,19 @@ export const pageAgentPlugin: PluginDefinition = {
   description: '把 alibaba/page-agent 装进后台：自然语言直接操作当前页面，配置与密钥留在后端。',
   author: 'Microkernel Admin',
   requires: ['core-admin'],
+  // 画布工具是可选的：没有 `ai` 插件时助手仍然能用，只是少了「改画布」这一把工具。
+  optionalRequires: ['ai'],
   defaultEnabled: true,
   setup(ctx) {
     for (const route of routes) ctx.routes.add(route)
     for (const menu of menus) ctx.menus.add(menu)
 
-    const runtime = createPageAgentRuntime({ http: ctx.http })
+    // 画布工具来自 `ai` 插件（可选依赖）：插件禁用/未加载时这里取不到，
+    // 助手照常工作，只是画布页少一把「画笔」。
+    const runtime = createPageAgentRuntime({
+      http: ctx.http,
+      canvasTool: () => ctx.services.get<CanvasDrawTool>('ai.canvasTool') ?? null,
+    })
     ctx.services.register('page-agent.runtime', runtime)
 
     // 唯一可见入口：外壳顶栏的 AI 图标。外壳只声明槽位，放什么由插件决定，

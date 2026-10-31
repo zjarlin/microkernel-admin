@@ -3,6 +3,7 @@ import { coreAdminPlugin } from './core-admin'
 import { sidebarPlugin } from './sidebar'
 import { systemPlugin } from './system'
 import { monitorPlugin } from './monitor'
+import { canvasPlugin } from './canvas'
 import { scadaPlugin } from './scada'
 import { pagesPlugin } from './pages'
 import { uiCanvasPlugin } from './ui-canvas'
@@ -18,6 +19,7 @@ export const pluginCatalog: PluginDefinition[] = [
   sidebarPlugin,
   systemPlugin,
   monitorPlugin,
+  canvasPlugin,
   scadaPlugin,
   aiPlugin,
   themePlugin,

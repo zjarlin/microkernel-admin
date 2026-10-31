@@ -1,13 +1,19 @@
 import type { PluginDefinition } from '@/kernel'
 import { routes, menus } from './routes'
+import { createCanvasDrawTool } from './canvas-tool'
 import AiDrawPanel from './components/AiDrawPanel.vue'
+import AiCanvasEntry from './components/AiCanvasEntry.vue'
 
 /**
  * AI 插件。
  *
  * 定位：AI 不是宿主内建能力，而是一个「可以被禁用、也可以依赖别人」的插件——
  * - 依赖 `scada`：只通过对方公开的 `workbench` 句柄改画布，不 import 页面；
- * - 贡献 `scada:assistant` 槽位：组态页有槽位就渲染，禁用本插件后 AI 面板自然消失；
+ * - 贡献 `scada:assistant` 槽位：组态右栏的 AI 页签内容（指令集生成 + 应用）；
+ * - 贡献 `ai.canvasTool` 服务：把「按自然语言改画布」暴露成一个工具，
+ *   通用页面助手（`page-agent`）在画布页就能用同一个对话框直接下笔——
+ *   这是「复用页面助手对话框」而不是再养第二个助手的关键；
+ * - 贡献 `shell:topbar-actions` 槽位：画布 AI 入口放在页面助手**旁边**，全站只此一处；
  * - 提示词与模型配置都在后端（`/ai/*`），换模型、调提示词不用改代码。
  */
 export const aiPlugin: PluginDefinition = {
@@ -22,6 +28,9 @@ export const aiPlugin: PluginDefinition = {
     for (const route of routes) ctx.routes.add(route)
     for (const menu of menus) ctx.menus.add(menu)
     ctx.slots.add({ name: 'scada:assistant', id: 'ai:draw', component: AiDrawPanel, order: 10 })
+    ctx.slots.add({ name: 'shell:topbar-actions', id: 'ai:canvas-entry', component: AiCanvasEntry, order: 20 })
+    // 工具是「服务」而不是「槽位」：它要被别的插件在运行期调用，而不是渲染出来。
+    ctx.services.register('ai.canvasTool', createCanvasDrawTool(ctx.http))
     return () => ctx.logger.debug('ai plugin disposed')
   },
 }

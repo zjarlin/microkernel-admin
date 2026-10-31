@@ -1,18 +1,51 @@
 <script setup lang="ts">
-// 画布 AI 助手：自然语言 → 指令集 → 预览 → 应用到画布。
+// 画布 AI 指令台：自然语言 → 指令集 → 预览 → 应用到画布。
 //
 // 这里刻意不做任何几何计算：服务端执行指令集并把「改好的文档 + 逐行问题」还回来，
 // 前端只负责让人确认。同一套面板接到别的编辑器时，只要换掉 workbench 句柄。
+//
+// 与「页面助手」的分工写在界面第一行：要**对话式**驱动（多轮、自动点击、缺参追问）
+// 就用页面助手那一个对话框——它已经通过 `ai.canvasTool` 拿到了画笔，不需要第二个对话框；
+// 这个页签只做「一次生成、看得见的指令、按一下就应用」的确定路径。
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { MagicStick, Promotion } from '@element-plus/icons-vue'
+import { ChatDotRound, MagicStick, Promotion } from '@element-plus/icons-vue'
 import { useService } from '@/shared/service'
 import type { HttpClient } from '@/shared/http'
 import { useScadaWorkbench } from '@/plugins/scada/workbench'
+import { useRuntime } from '@/shared/service'
 import { drawOnCanvas, fetchAiConfig, fetchPrompts, type AiConfigView, type AiDrawResult, type AiPromptView } from '../api'
+
+/** 页面助手运行时（可选插件）：有它就能把同一句话丢进那个对话面板。 */
+interface AssistantRuntime {
+  available: { value: boolean }
+  run: (task: string) => Promise<void>
+}
 
 const http = useService<HttpClient>('http')
 const workbench = useScadaWorkbench()
+const runtime = useRuntime()
+
+/** 页面助手是否可用：插件被停用或没配好时为 false，界面据此隐藏「对话」入口。 */
+const assistant = computed<AssistantRuntime | null>(() => {
+  try {
+    return runtime.service<AssistantRuntime>('page-agent.runtime')
+  } catch {
+    return null
+  }
+})
+const assistantReady = computed(() => assistant.value?.available.value === true)
+
+/** 用当前输入（或快捷示例）打开页面助手那一个对话框，在同一个任务里完成多轮修改。 */
+async function openAssistant(): Promise<void> {
+  const target = assistant.value
+  if (!target) return
+  const text = instruction.value.trim()
+  const task = text
+    ? `${text}\n（用 draw_on_scada_canvas 工具直接改当前组态画布）`
+    : '看看当前组态画布，指出排版问题并用 draw_on_scada_canvas 做最小修正。'
+  await target.run(task)
+}
 
 const prompts = ref<AiPromptView[]>([])
 const promptId = ref('scada.draw')
@@ -102,6 +135,17 @@ function usePreset(text: string): void {
       </el-select>
     </div>
 
+    <!-- 对话式入口就放在第一行：要多轮修改/自动点页面时用它，别在这里另造一套对话。 -->
+    <el-button
+      v-if="assistantReady"
+      size="small"
+      class="ai-draw__assistant"
+      :icon="ChatDotRound"
+      @click="openAssistant"
+    >
+      用页面助手对话改画布（顶栏 AI 图标）
+    </el-button>
+
     <el-alert v-if="!draftable" type="info" :closable="false" show-icon
       title="打开一张画面后可用" description="AI 助手直接改当前画布，没有画布时不会调用模型。" />
 
@@ -172,6 +216,7 @@ function usePreset(text: string): void {
 .ai-draw { display: flex; flex-direction: column; gap: 10px; padding: 14px; }
 .ai-draw__head { display: flex; align-items: center; gap: 8px; }
 .ai-draw__prompt { flex: 1; min-width: 0; }
+.ai-draw__assistant { width: 100%; justify-content: center; }
 .ai-draw__presets { display: flex; flex-wrap: wrap; gap: 6px; }
 .ai-draw__presets button {
   border: 1px solid var(--line); background: transparent; color: var(--muted);
