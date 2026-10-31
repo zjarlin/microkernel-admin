@@ -26,6 +26,9 @@
       "path": "./packages/scada-dsl"
     },
     {
+      "path": "./packages/ifc-canvas"
+    },
+    {
       "path": "./packages/nav-tree"
     },
     {

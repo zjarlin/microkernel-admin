@@ -17,6 +17,9 @@ importers:
       '@addzero/data-page-element':
         specifier: workspace:*
         version: link:packages/data-page-element
+      '@addzero/ifc-canvas':
+        specifier: workspace:*
+        version: link:packages/ifc-canvas
       '@addzero/nav-tree':
         specifier: workspace:*
         version: link:packages/nav-tree
@@ -126,6 +129,8 @@ importers:
       vue:
         specifier: ^3.5.0
         version: 3.5.44(typescript@5.9.3)
+
+  packages/ifc-canvas: {}
 
   packages/scada-dsl: {}
 

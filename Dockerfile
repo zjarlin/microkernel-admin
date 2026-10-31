@@ -18,6 +18,7 @@ COPY packages/data-page-element/package.json packages/data-page-element/
 COPY packages/ui-server/package.json packages/ui-server/
 COPY packages/app-frame/package.json packages/app-frame/
 COPY packages/scada-dsl/package.json packages/scada-dsl/
+COPY packages/ifc-canvas/package.json packages/ifc-canvas/
 RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm build:packages && pnpm build

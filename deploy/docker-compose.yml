@@ -25,6 +25,11 @@ services:
       AI_BASE_URL: ${AI_BASE_URL:-http://127.0.0.1:18080}
       AI_MODEL: ${AI_MODEL:-ds}
       AI_API_KEY: ${AI_API_KEY:-}
+      # 组态→IFC 缺参追问：不填则复用上面的 AI_*（同一网关、同一份密钥）。
+      EXTRUSION_MODEL: ${EXTRUSION_MODEL:-}
+      EXTRUSION_AI_BACKGROUND: ${EXTRUSION_AI_BACKGROUND:-1}
+      EXTRUSION_AI_TIMEOUT_MS: ${EXTRUSION_AI_TIMEOUT_MS:-90000}
+      EXTRUSION_AI_POLL_MS: ${EXTRUSION_AI_POLL_MS:-900}
       # 页面助手：只在存储为空时播种，之后界面是唯一真源（见 .env.example）。
       PAGE_AGENT_BASE_URL: ${PAGE_AGENT_BASE_URL:-}
       PAGE_AGENT_MODEL: ${PAGE_AGENT_MODEL:-}

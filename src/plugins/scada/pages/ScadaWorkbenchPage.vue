@@ -4,6 +4,7 @@
 // 数据全部走后端契约（/scada/*，实现在 `server/plugins/scada/`）；
 // 画布求值与几何在 src/shared/scada/render.ts，页面只做交互编排。
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, DocumentAdd, Download, Refresh } from '@element-plus/icons-vue'
 import { useService } from '@/shared/service'
@@ -47,6 +48,7 @@ const inspectorReady = ref(false)
 const PROJECT_ID = 1
 
 const http = useService<HttpClient>('http')
+const route = useRoute()
 
 const screens = ref<ScadaScreenSummary[]>([])
 const currentScreen = ref<ScadaScreenDetail | null>(null)
@@ -235,8 +237,11 @@ function toggleInspector(): void {
 // 选中变化只更新右栏标题栏的说明，不重开面板、不重置用户拖好的宽度。
 watch(inspectorHint, (hint) => updateRightPanel(INSPECTOR_PANEL_ID, { hint }))
 
-onMounted(() => {
-  void refreshAll()
+onMounted(async () => {
+  await refreshAll()
+  // 从「画面库」点「编辑」进来时带 screenId：直接打开那一页，不覆盖本地已选。
+  const queryId = Number(route.query.screenId ?? 0)
+  if (queryId && queryId !== currentScreen.value?.id) await openScreen(queryId)
   // 把画布的读写能力挂到公开句柄上：AI 插件（以及将来任何插件）只通过它协作。
   detachWorkbench.value = attachScadaWorkbench({
     readDocument: () => deepClone(document.value),
