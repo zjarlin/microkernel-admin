@@ -6,7 +6,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, DocumentAdd, Download, Operation, Refresh, Sort } from '@element-plus/icons-vue'
+import { Bottom, Delete, DocumentAdd, Download, Operation, Refresh, RefreshRight, Sort, Top } from '@element-plus/icons-vue'
 import { useService } from '@/shared/service'
 import type { HttpClient } from '@/shared/http'
 import type {
@@ -18,7 +18,7 @@ import type {
   ScadaTagOption,
   ScadaWidget,
 } from '@/shared/scada/types'
-import { createEmptyScadaDocument, isWritableAccessMode, parseScadaDocument } from '@/shared/scada/types'
+import { createEmptyScadaDocument, parseScadaDocument } from '@/shared/scada/types'
 import type { TagValueSource } from '@/shared/scada/render'
 import { referencedTagIds } from '@/shared/scada/render'
 import ScadaCanvas from '@/components/scada/ScadaCanvas.vue'
@@ -116,7 +116,6 @@ const boundSlotCount = computed(() =>
 
 const resolvedTagCount = computed(() => referencedTagIds(document.value).length)
 
-const writableTagCount = computed(() => tagOptions.value.filter((tag) => isWritableAccessMode(tag.accessMode)).length)
 
 const pickerTitle = computed(() => {
   const slot = tagPickerSlot.value
@@ -652,27 +651,38 @@ function exportSvg(): void {
 
       <span class="scada-divider" />
 
+      <!-- 开关用图标按钮而不是带字的复选框：一条工具条只许一行，字是第一个让位的东西。 -->
       <div class="scada-bar__group">
-        <el-checkbox v-model="snapEnabled" size="small">吸附</el-checkbox>
-        <el-checkbox v-model="guideEnabled" size="small">参考线</el-checkbox>
+        <el-tooltip :content="`栅格吸附：${snapEnabled ? '开' : '关'}`" placement="bottom">
+          <el-button size="small" :type="snapEnabled ? 'primary' : 'default'" :plain="snapEnabled" @click="snapEnabled = !snapEnabled">
+            吸附
+          </el-button>
+        </el-tooltip>
+        <el-tooltip :content="`对齐参考线：${guideEnabled ? '开' : '关'}`" placement="bottom">
+          <el-button size="small" :type="guideEnabled ? 'primary' : 'default'" :plain="guideEnabled" @click="guideEnabled = !guideEnabled">
+            参考线
+          </el-button>
+        </el-tooltip>
         <span class="scada-stat muted">
-          {{ document.widgets.length }} 图元 · {{ boundSlotCount }} 绑定 · {{ resolvedTagCount }} 变量（可写 {{ writableTagCount }}）
+          {{ document.widgets.length }} 图元 · {{ boundSlotCount }} 绑定 · {{ resolvedTagCount }} 变量
         </span>
       </div>
 
       <span class="scada-spacer" />
 
       <div class="scada-bar__group">
-        <el-button-group>
-          <el-tooltip content="下移一层" placement="bottom">
-            <el-button size="small" :disabled="selectedIds.length !== 1" @click="changeZIndex(-1)">下移</el-button>
-          </el-tooltip>
-          <el-tooltip content="上移一层" placement="bottom">
-            <el-button size="small" :disabled="selectedIds.length !== 1" @click="changeZIndex(1)">上移</el-button>
-          </el-tooltip>
-        </el-button-group>
-        <el-button size="small" :disabled="!selectedIds.length" @click="rotateSelected">旋转</el-button>
-        <el-button size="small" :disabled="!selectedIds.length" @click="deleteSelected">删除</el-button>
+        <el-tooltip content="下移一层" placement="bottom">
+          <el-button size="small" :icon="Bottom" :disabled="selectedIds.length !== 1" @click="changeZIndex(-1)" />
+        </el-tooltip>
+        <el-tooltip content="上移一层" placement="bottom">
+          <el-button size="small" :icon="Top" :disabled="selectedIds.length !== 1" @click="changeZIndex(1)" />
+        </el-tooltip>
+        <el-tooltip content="旋转 90°" placement="bottom">
+          <el-button size="small" :icon="RefreshRight" :disabled="!selectedIds.length" @click="rotateSelected" />
+        </el-tooltip>
+        <el-tooltip content="删除选中" placement="bottom">
+          <el-button size="small" :icon="Delete" :disabled="!selectedIds.length" @click="deleteSelected" />
+        </el-tooltip>
       </div>
 
       <div class="scada-bar__group scada-zoom">
@@ -709,8 +719,12 @@ function exportSvg(): void {
       <span class="scada-divider" />
 
       <div class="scada-bar__group">
-        <el-button size="small" :icon="Refresh" @click="refreshAll">刷新</el-button>
-        <el-button size="small" :icon="Download" @click="exportSvg">导出 SVG</el-button>
+        <el-tooltip content="重新拉取画面、图元库与变量" placement="bottom">
+          <el-button size="small" :icon="Refresh" @click="refreshAll" />
+        </el-tooltip>
+        <el-tooltip content="导出当前画布为 SVG" placement="bottom">
+          <el-button size="small" :icon="Download" @click="exportSvg" />
+        </el-tooltip>
         <el-button size="small" type="primary" :loading="saving" :disabled="!currentScreen" @click="saveScreen">保存</el-button>
       </div>
     </div>
@@ -832,24 +846,29 @@ function exportSvg(): void {
 /* 一列到底：工具条定高，舞台吃满剩余，滚动只发生在画布内部。 */
 .scada-page { display: flex; flex-direction: column; min-width: 0; min-height: 0; flex: 1 1 auto; height: 100%; background: var(--app-bg); }
 .scada-bar {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: none;
-  padding: 7px 12px; background: var(--surface); border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 6px; flex: none;
+  /* 严格一行：CAD 里工具条换行等于凭空吃掉一条画布高度。放不下就先让统计文字消失。 */
+  flex-wrap: nowrap; overflow: hidden;
+  height: 40px; padding: 0 10px;
+  background: var(--surface); border-bottom: 1px solid var(--line);
 }
-.scada-bar__group { display: flex; align-items: center; gap: 8px; }
+.scada-bar__group { display: flex; align-items: center; gap: 6px; flex: none; }
+.scada-bar__group .el-button + .el-button { margin-left: 0; }
+.scada-bar__group .el-button { padding-left: 8px; padding-right: 8px; }
 .scada-spacer { flex: 1 1 auto; }
 .scada-divider { width: 1px; height: 18px; background: var(--line); flex: none; }
 .scada-stat { font-size: 11px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .scada-title {
-  display: inline-flex; align-items: center; gap: 8px; max-width: 340px;
-  padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px;
+  display: inline-flex; align-items: center; gap: 6px; max-width: 220px; min-width: 0;
+  padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px;
   background: var(--surface); color: var(--app-text); cursor: pointer;
 }
 .scada-title:hover { border-color: var(--brand); }
-.scada-title strong { font: 600 13px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scada-title strong { font: 600 12px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .scada-title em { font-style: normal; font-size: 11px; color: var(--muted); flex: none; }
 .scada-title em.is-dirty { color: #f59e0b; }
 .scada-zoom { flex: none; }
-.scada-zoom__slider { width: 110px; }
+.scada-zoom__slider { width: 84px; }
 .scada-zoom__value { min-width: 34px; text-align: right; }
 .scada-alert { margin: 8px 12px 0; }
 
