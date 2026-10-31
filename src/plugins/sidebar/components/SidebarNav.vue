@@ -227,26 +227,28 @@ watch([rows, keyword], () => nextTick(syncMoreBelow))
 </template>
 
 <style scoped>
-.sidebar { width: 100%; height: 100%; display: flex; flex-direction: column; background: #0f172a; color: #cbd5e1; }
-.sidebar-head { height: 76px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 20px; border-bottom: 1px solid rgba(148, 163, 184, .12); }
+/* 侧栏配色全部来自 `--sidebar-*` 令牌（base.scss 里一套浅色、一套深色），
+   所以「深浅切换」时侧栏跟着换皮，而不是永远一块黑。 */
+.sidebar { width: 100%; height: 100%; display: flex; flex-direction: column; background: var(--sidebar-bg, #0f172a); color: var(--sidebar-text, #cbd5e1); transition: background .18s ease, color .18s ease; }
+.sidebar-head { height: 76px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 20px; border-bottom: 1px solid var(--sidebar-line, rgba(148, 163, 184, .12)); }
 .sidebar.is-collapsed .sidebar-head { padding: 0 12px; justify-content: center; }
-.logo { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: linear-gradient(135deg, #3b82f6, #22d3ee); color: #08111d; font-weight: 900; flex: 0 0 38px; }
+.logo { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: linear-gradient(135deg, var(--brand, #3b82f6), var(--accent, #22d3ee)); color: #08111d; font-weight: 900; flex: 0 0 38px; }
 .logo-text { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
-.logo-text strong { color: #f8fafc; font-size: 14px; white-space: nowrap; }
-.logo-text span { color: #7d8da4; font-size: 11px; white-space: nowrap; }
+.logo-text strong { color: var(--sidebar-text-strong, #f8fafc); font-size: 14px; white-space: nowrap; }
+.logo-text span { color: var(--sidebar-muted, #7d8da4); font-size: 11px; white-space: nowrap; }
 .sidebar-search { flex: none; padding: 10px 12px 6px; display: flex; flex-direction: column; gap: 4px; }
-.sidebar-search :deep(.el-input__wrapper) { background: rgba(148, 163, 184, .1); box-shadow: none; }
-.sidebar-search :deep(.el-input__inner) { color: #e2e8f0; font-size: 12px; }
-.sidebar-search :deep(.el-input__inner::placeholder) { color: #64748b; }
-.sidebar-search__hint { font-size: 10px; color: #64748b; letter-spacing: .04em; }
-.sidebar-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 12px 24px; position: relative; scrollbar-width: thin; }
+.sidebar-search :deep(.el-input__wrapper) { background: var(--sidebar-hover-bg, rgba(148, 163, 184, .1)); box-shadow: none; }
+.sidebar-search :deep(.el-input__inner) { color: var(--sidebar-text-strong, #e2e8f0); font-size: 12px; }
+.sidebar-search :deep(.el-input__inner::placeholder) { color: var(--sidebar-muted, #64748b); }
+.sidebar-search__hint { font-size: 10px; color: var(--sidebar-muted, #64748b); letter-spacing: .04em; }
+.sidebar-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 12px 24px; position: relative; scrollbar-width: thin; scrollbar-color: var(--sidebar-scrollbar, rgba(148, 163, 184, .3)) transparent; }
 .sidebar-scroll::-webkit-scrollbar { width: 6px; }
-.sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, .28); border-radius: 3px; }
+.sidebar-scroll::-webkit-scrollbar-thumb { background: var(--sidebar-scrollbar, rgba(148, 163, 184, .28)); border-radius: 3px; }
 /* 渐隐只在「下面确实还有菜单」时出现，否则会遮住最后一项。 */
 .sidebar::after { content: none; }
 .sidebar.has-more-below .sidebar-scroll { mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent); }
-.nav-empty { margin: 8px 4px; font-size: 12px; color: #64748b; }
-.sidebar-foot { flex: none; border-top: 1px solid rgba(148, 163, 184, .12); padding: 12px; }
-.collapse-button { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; height: 38px; border: 0; border-radius: 9px; background: rgba(148, 163, 184, .08); color: #94a3b8; cursor: pointer; font-size: 12px; }
-.collapse-button:hover { background: rgba(148, 163, 184, .14); color: #e2e8f0; }
+.nav-empty { margin: 8px 4px; font-size: 12px; color: var(--sidebar-muted, #64748b); }
+.sidebar-foot { flex: none; border-top: 1px solid var(--sidebar-line, rgba(148, 163, 184, .12)); padding: 12px; }
+.collapse-button { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; height: 38px; border: 1px solid var(--sidebar-line, transparent); border-radius: 9px; background: var(--sidebar-hover-bg, rgba(148, 163, 184, .08)); color: var(--sidebar-text, #94a3b8); cursor: pointer; font-size: 12px; transition: background .16s ease, color .16s ease, border-color .16s ease; }
+.collapse-button:hover { background: var(--sidebar-active-bg, rgba(148, 163, 184, .14)); color: var(--sidebar-text-strong, #e2e8f0); border-color: var(--sidebar-line-strong, var(--sidebar-line, transparent)); }
 </style>

@@ -197,9 +197,9 @@ function toggleTheme(): void {
 
 <style scoped>
 /* 侧栏插件停用时的兜底样式（深色轨道 + 品牌方块），与插件内部视觉一致。 */
-.sidebar-fallback { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 20px 12px; background: #0f172a; }
-.sidebar-fallback__logo { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: linear-gradient(135deg, #3b82f6, #22d3ee); color: #08111d; font-weight: 900; }
-.sidebar-fallback__hint { margin: 0; font-size: 12px; color: #64748b; text-align: center; }
+.sidebar-fallback { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 20px 12px; background: var(--sidebar-bg); }
+.sidebar-fallback__logo { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: linear-gradient(135deg, var(--brand), var(--accent)); color: #08111d; font-weight: 900; }
+.sidebar-fallback__hint { margin: 0; font-size: 12px; color: var(--sidebar-muted); text-align: center; }
 /* 宽度由 @addzero/app-frame 的列求解决定，这里只负责把内容填满所在轨道。 */
 /* 中栏宽度由布局服务求解（右栏一开就让位），所以响应式按「容器宽度」判断，
    而不是按视口——视口 1600px 时中栏可能只有 880px。 */

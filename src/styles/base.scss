@@ -14,6 +14,25 @@
   --hover: #f1f5f9;
   --radius: 14px;
   color-scheme: light;
+  /*
+   * 侧栏是独立调色板，不跟着内容区的 surface 走。
+   * 浅色下是「白底深字」，深色下是「深海蓝底浅字」——两种模式各有各的样子，
+   * 而不是一种写死的深色。
+   */
+  --sidebar-bg: #ffffff;
+  --sidebar-bg-soft: #f4f6fa;
+  --sidebar-line: #e8edf5;
+  --sidebar-line-strong: #cdd8e8;
+  --sidebar-text: #48566e;
+  --sidebar-text-strong: #0f172a;
+  --sidebar-muted: #94a3b8;
+  --sidebar-hover-bg: #f1f5f9;
+  --sidebar-active-bg: color-mix(in srgb, var(--brand) 12%, transparent);
+  --sidebar-active-text: var(--brand);
+  --sidebar-active-bar: var(--brand);
+  --sidebar-scrollbar: rgba(100, 116, 139, .3);
+  --sidebar-badge-bg: var(--brand);
+  --sidebar-badge-text: #ffffff;
 
   /*
    * 让 Element Plus 的主色跟着品牌色走。
@@ -39,6 +58,21 @@ html.dark {
   --line-strong: #334155;
   --hover: #1b2940;
   color-scheme: dark;
+  /* 侧栏深色调色板：与浅色同一组令牌，只换值。 */
+  --sidebar-bg: #0f172a;
+  --sidebar-bg-soft: #14203a;
+  --sidebar-line: rgba(148, 163, 184, .14);
+  --sidebar-line-strong: rgba(148, 163, 184, .3);
+  --sidebar-text: #a9b6c9;
+  --sidebar-text-strong: #f8fafc;
+  --sidebar-muted: #7d8da4;
+  --sidebar-hover-bg: rgba(148, 163, 184, .1);
+  --sidebar-active-bg: linear-gradient(90deg, rgba(59, 130, 246, .26), rgba(34, 211, 238, .08));
+  --sidebar-active-text: #f8fafc;
+  --sidebar-active-bar: #38bdf8;
+  --sidebar-scrollbar: rgba(148, 163, 184, .3);
+  --sidebar-badge-bg: #1d4ed8;
+  --sidebar-badge-text: #ffffff;
 
   /* 让 Element Plus 组件跟随宿主设计变量，而不是官方纯黑暗色底。 */
   --el-bg-color: var(--surface);
