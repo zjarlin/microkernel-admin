@@ -885,39 +885,9 @@ function exportSvg(): void {
 .scada-screen-item__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .scada-screen-item__meta { color: var(--muted); font-size: 11px; flex: none; }
 .scada-empty { font-size: 12px; margin: 4px 0; }
+/* 右栏页签（属性 / AI 助手）由外壳面板承载，这里只让页签头贴住滚动区。 */
 .scada-panel-tabs { padding: 0 12px 12px; }
 .scada-panel-tabs :deep(.el-tabs__header) { margin-bottom: 10px; position: sticky; top: 0; background: var(--surface); z-index: 1; }
+/* 窄屏：统计文字先让位给缩放与操作按钮。 */
 @media (max-width: 1400px) { .scada-stat { display: none; } }
-</style>
-
-<style scoped>
-.scada-page { min-width: 0; }
-/* 资源轨 + 画布两列；属性面板已交给外壳右栏，不再自建第三列。 */
-.scada-layout { display: grid; grid-template-columns: 244px minmax(0, 1fr); gap: 16px; align-items: stretch; }
-.scada-pane { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 16px; }
-.scada-pane--canvas { padding: 12px; }
-.scada-pane-actions { display: flex; align-items: center; gap: 2px; }
-.scada-screens { display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow: auto; }
-.scada-screen-item {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 7px 10px; border: 1px solid transparent; border-radius: 8px;
-  background: transparent; color: var(--app-text); font-size: 13px; cursor: pointer; text-align: left;
-}
-.scada-screen-item:hover { background: rgba(99, 102, 241, .08); }
-.scada-screen-item.is-active { border-color: rgba(99, 102, 241, .45); background: rgba(99, 102, 241, .12); }
-.scada-screen-item__meta { color: var(--muted); font-size: 11px; }
-.scada-empty { font-size: 12px; margin: 4px 0; }
-.scada-palette-head { margin: 4px 0 0; }
-.scada-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
-.scada-bar__left { display: flex; align-items: center; gap: 12px; font-size: 12px; flex-wrap: wrap; }
-.scada-bar__right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.scada-zoom { width: 130px; min-width: 96px; flex: 0 1 130px; }
-.scada-canvas-host {
-  display: flex; align-items: flex-start; justify-content: center;
-  max-height: 72vh; overflow: auto; border-radius: 10px;
-}
-.scada-panel-tabs { padding: 0 12px 12px; }
-.scada-panel-tabs :deep(.el-tabs__header) { margin-bottom: 10px; position: sticky; top: 0; background: var(--surface); z-index: 1; }
-@media (max-width: 1280px) { .scada-layout { grid-template-columns: 220px minmax(0, 1fr); } }
-@media (max-width: 900px) { .scada-layout { grid-template-columns: 1fr; } }
 </style>
