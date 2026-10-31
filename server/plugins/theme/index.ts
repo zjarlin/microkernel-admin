@@ -61,7 +61,9 @@ export const DEFAULT_THEME: UiTheme = {
   sidebarLight: {
     bg: '#ffffff',
     text: '#48566e',
-    activeBg: '#e5ecfd',
+    // 选中底比 --brand-soft 再浅一点：出厂状态就要让主色文字过 4.5:1，
+    // 不然用户第一次动任何一项，都会触发「文字被偷偷调深」。
+    activeBg: '#eff6ff',
     activeText: '#2563eb',
     activeBar: '#2563eb',
   },

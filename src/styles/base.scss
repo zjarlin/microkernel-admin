@@ -30,7 +30,7 @@
   --sidebar-text-strong: #0f172a;
   --sidebar-muted: #94a3b8;
   --sidebar-hover-bg: #f1f5f9;
-  --sidebar-active-bg: color-mix(in srgb, var(--brand) 12%, transparent);
+  --sidebar-active-bg: linear-gradient(90deg, color-mix(in srgb, var(--brand) 8%, #ffffff), color-mix(in srgb, var(--brand) 6%, #ffffff));
   --sidebar-active-text: var(--brand);
   --sidebar-active-bar: var(--brand);
   --sidebar-scrollbar: rgba(100, 116, 139, .3);

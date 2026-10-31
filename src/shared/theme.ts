@@ -55,7 +55,9 @@ export const DEFAULT_THEME: UiTheme = {
   sidebarLight: {
     bg: '#ffffff',
     text: '#48566e',
-    activeBg: '#e5ecfd',
+    // 选中底比 --brand-soft 再浅一点：出厂状态就要让主色文字过 4.5:1，
+    // 不然用户第一次动任何一项，都会触发「文字被偷偷调深」。
+    activeBg: '#eff6ff',
     activeText: '#2563eb',
     activeBar: '#2563eb',
   },
@@ -172,15 +174,37 @@ function readableOn(foreground: string, background: string, min = 4.5): string {
 }
 
 /**
+ * 选中行的底色是渐变，文字要「整条都够读」，所以必须对两个色标都成立。
+ *
+ * 只校验渐变起点会出现「左边看得清、右边糊成一片」——实测过。
+ */
+export function activeRowStops(palette: SidebarPalette): [string, string] {
+  // 末标只往底色偏 15%：偏太多就成了「深→浅」的断层，任何单一文字色都不可能两头都读得清。
+  return [palette.activeBg, mix(palette.activeBg, palette.bg, 0.85)]
+}
+
+/** 前景色在若干个背景上都够读时返回它，否则朝黑/白推直到全部满足。 */
+function readableOnAll(foreground: string, backgrounds: string[], min = 4.5): string {
+  const ok = (candidate: string): boolean => backgrounds.every((bg) => contrastRatio(candidate, bg) >= min)
+  if (ok(foreground)) return foreground
+  const target = backgrounds.every((bg) => isDark(bg)) ? '#ffffff' : '#000000'
+  for (let step = 1; step <= 10; step += 1) {
+    const candidate = mix(foreground, target, 1 - step / 10)
+    if (ok(candidate)) return candidate
+  }
+  return target
+}
+
+/**
  * 换底色后自动把文字调到还能读，避免「底色调深了、字还是深灰」。
  *
  * 只在底色变化时兜一次底；用户随后手动改的字不再被覆盖。
  * 返回是否动过，供调用方决定要不要提示。
  */
 export function ensureReadable(palette: SidebarPalette): boolean {
+  // 两层一起校正：渐变末标由底色算出，改底色同样会让选中项文字失效。
   const nextText = readableOn(palette.text, palette.bg)
-  // 选中项的字压在选中底（渐变起点）上，同样要够读。
-  const nextActive = readableOn(palette.activeText, palette.activeBg)
+  const nextActive = readableOnAll(palette.activeText, activeRowStops(palette))
   const changed = nextText !== palette.text || nextActive !== palette.activeText
   palette.text = nextText
   palette.activeText = nextActive
@@ -198,7 +222,7 @@ export function sidebarTokens(palette: SidebarPalette): Record<string, string> {
   return {
     '--sidebar-bg': palette.bg,
     '--sidebar-text': palette.text,
-    '--sidebar-active-bg': `linear-gradient(90deg, ${palette.activeBg}, ${mix(palette.activeBg, palette.bg, 0.55)})`,
+    '--sidebar-active-bg': `linear-gradient(90deg, ${activeRowStops(palette).join(', ')})`,
     '--sidebar-active-text': palette.activeText,
     '--sidebar-active-bar': palette.activeBar,
     // 以下是派生：轻一点的底、分隔线、悬停底、次要文字、角标。

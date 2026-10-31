@@ -88,7 +88,7 @@ function setSidebarColor(key: keyof SidebarPalette, value: string | null): void 
   // 换底色/选中底时兜一次对比度：底调深了字不会留在深灰。手动调字之后不再覆盖。
   if (key === 'bg' || key === 'activeBg') {
     const fixed = ensureReadable(palette.value)
-    if (fixed) ElMessage.info('底色偏深/偏浅，文字已自动调亮（可再手动改）')
+    if (fixed) ElMessage.info('底色调深了，文字已自动调亮（可再手动改）')
   }
   preview()
 }
