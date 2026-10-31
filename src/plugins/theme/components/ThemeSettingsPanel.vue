@@ -12,6 +12,7 @@ import { useUiStore } from '@/stores/ui'
 import {
   cloneTheme,
   defaultTheme,
+  ensureReadable,
   followBrand,
   saveTheme,
   sidebarTokens,
@@ -84,6 +85,11 @@ function setColor(key: keyof UiTheme, value: string | null): void {
 function setSidebarColor(key: keyof SidebarPalette, value: string | null): void {
   if (typeof value !== 'string') return
   palette.value[key] = value
+  // 换底色/选中底时兜一次对比度：底调深了字不会留在深灰。手动调字之后不再覆盖。
+  if (key === 'bg' || key === 'activeBg') {
+    const fixed = ensureReadable(palette.value)
+    if (fixed) ElMessage.info('底色偏深/偏浅，文字已自动调亮（可再手动改）')
+  }
   preview()
 }
 

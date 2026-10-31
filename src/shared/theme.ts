@@ -142,6 +142,51 @@ function readableText(hex: string): string {
   return isDark(hex) ? '#ffffff' : '#0b1220'
 }
 
+/** WCAG 相对亮度与对比度：用来判断「这行字压在换个底色还看不看得清」。 */
+function luminance(hex: string): number {
+  const channel = (value: number): number => {
+    const ratio = value / 255
+    return ratio <= 0.03928 ? ratio / 12.92 : ((ratio + 0.055) / 1.055) ** 2.4
+  }
+  const [r, g, b] = toRgb(hex)
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+}
+
+export function contrastRatio(a: string, b: string): number {
+  const first = luminance(a)
+  const second = luminance(b)
+  const hi = Math.max(first, second)
+  const lo = Math.min(first, second)
+  return (hi + 0.05) / (lo + 0.05)
+}
+
+/** 把前景色朝黑/白推，直到压在该底色上够读（WCAG 4.5:1）；推不动就退回纯黑/纯白。 */
+function readableOn(foreground: string, background: string, min = 4.5): string {
+  if (contrastRatio(foreground, background) >= min) return foreground
+  const target = isDark(background) ? '#ffffff' : '#000000'
+  for (let step = 1; step <= 10; step += 1) {
+    const candidate = mix(foreground, target, 1 - step / 10)
+    if (contrastRatio(candidate, background) >= min) return candidate
+  }
+  return target
+}
+
+/**
+ * 换底色后自动把文字调到还能读，避免「底色调深了、字还是深灰」。
+ *
+ * 只在底色变化时兜一次底；用户随后手动改的字不再被覆盖。
+ * 返回是否动过，供调用方决定要不要提示。
+ */
+export function ensureReadable(palette: SidebarPalette): boolean {
+  const nextText = readableOn(palette.text, palette.bg)
+  // 选中项的字压在选中底（渐变起点）上，同样要够读。
+  const nextActive = readableOn(palette.activeText, palette.activeBg)
+  const changed = nextText !== palette.text || nextActive !== palette.activeText
+  palette.text = nextText
+  palette.activeText = nextActive
+  return changed
+}
+
 /**
  * 把 5 个可调色算成侧栏要用的整组 `--sidebar-*` 令牌。
  *
