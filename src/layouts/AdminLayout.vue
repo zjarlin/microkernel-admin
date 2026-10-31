@@ -31,6 +31,12 @@ const kernelStore = useKernelStore()
 const booted = ref(true)
 
 const pageTitle = computed(() => (typeof route.meta.title === 'string' ? route.meta.title : '工作台'))
+
+/**
+ * 全出血页面：设计器、运行预览这类「画布要吃满视口」的页面，
+ * 不要外壳的 28px 边距与滚动条——滚动交给页面自己，否则画布永远少一截。
+ */
+const fullBleed = computed(() => route.meta.fullBleed === true)
 const enabledPlugins = computed(() => kernelStore.statuses.filter((item) => item.enabled).length)
 
 onMounted(() => {
@@ -93,7 +99,9 @@ function toggleTheme(): void {
           <el-button circle text @click="toggle">
             <el-icon :size="18"><Fold /></el-icon>
           </el-button>
-          <div class="breadcrumb">
+          <!-- 全出血页（设计器/运行预览）自带标题与状态，这里不再重复一条面包屑：
+                IDE 型页面每一像素都要还给画布。 -->
+          <div v-if="!fullBleed" class="breadcrumb">
             <span>控制台</span>
             <i>/</i>
             <strong>{{ pageTitle }}</strong>
@@ -146,7 +154,7 @@ function toggleTheme(): void {
 
       <TagsView />
 
-      <main class="content-area">
+      <main class="content-area" :class="{ 'is-full-bleed': fullBleed }">
         <router-view v-slot="{ Component }">
           <transition name="page-fade" mode="out-in">
             <component :is="Component" v-if="booted" :key="route.path" />
@@ -223,6 +231,9 @@ function toggleTheme(): void {
 .user-meta small { color: var(--muted); font-size: 11px; }
 /* 内容区：铺满剩余高度、只在自身内部滚动，与侧栏底边严格对齐。 */
 .content-area { flex: 1 1 auto; min-height: 0; min-width: 0; padding: 28px; overflow: auto; overscroll-behavior: contain; }
+/* 全出血：去掉内边距并禁止外层滚动，页面内部自己排版（画布/IDE 型页面）。 */
+.content-area.is-full-bleed { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.content-area.is-full-bleed > * { flex: 1 1 auto; min-height: 0; }
 .shell-rightbar { display: flex; flex-direction: column; flex: 1; height: 100%; min-height: 0; overflow: hidden; }
 .shell-rightbar__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 14px 14px 12px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 2; }
 .shell-rightbar__title { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
