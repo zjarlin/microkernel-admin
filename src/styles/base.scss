@@ -18,6 +18,9 @@
    * 侧栏是独立调色板，不跟着内容区的 surface 走。
    * 浅色下是「白底深字」，深色下是「深海蓝底浅字」——两种模式各有各的样子，
    * 而不是一种写死的深色。
+   *
+   * 这里只是出厂值：运行期由「界面外观」里的侧栏调色板覆盖
+   * （/ui/theme 的 sidebarLight / sidebarDark，见 src/shared/theme.ts 的 sidebarTokens）。
    */
   --sidebar-bg: #ffffff;
   --sidebar-bg-soft: #f4f6fa;

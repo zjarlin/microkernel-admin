@@ -9,7 +9,21 @@ import { MagicStick, Refresh } from '@element-plus/icons-vue'
 import { useRuntime, useService } from '@/shared/service'
 import type { HttpClient } from '@/shared/http'
 import { useUiStore } from '@/stores/ui'
-import { DEFAULT_THEME, applyTheme, saveTheme, type ThemeResponse, type UiDensity, type UiTheme } from '@/shared/theme'
+import {
+  cloneTheme,
+  defaultTheme,
+  followBrand,
+  saveTheme,
+  sidebarTokens,
+  applyTheme,
+  SIDEBAR_MODES,
+  THEME_SCALAR_KEYS,
+  type SidebarMode,
+  type SidebarPalette,
+  type ThemeResponse,
+  type UiDensity,
+  type UiTheme,
+} from '@/shared/theme'
 
 const http = useService<HttpClient>('http')
 const runtime = useRuntime()
@@ -17,8 +31,8 @@ const ui = useUiStore()
 // AI 是独立插件：被禁用时只是少一个加速入口，主题本身仍可手工调。
 const aiEnabled = runtime.pluginEnabled('ai')
 
-const theme = reactive<UiTheme>({ ...DEFAULT_THEME })
-const saved = ref<UiTheme>({ ...DEFAULT_THEME })
+const theme = reactive<UiTheme>(defaultTheme())
+const saved = ref<UiTheme>(defaultTheme())
 const loading = ref(false)
 const saving = ref(false)
 
@@ -34,6 +48,21 @@ const colorFields: Array<{ key: keyof UiTheme; label: string; hint: string }> = 
   { key: 'muted', label: '次要文字', hint: '说明文字与占位' },
 ]
 
+// 侧栏是独立的一块：浅色 / 深色各一组，只放 5 个真的会调的色，其余由 sidebarTokens() 派生。
+const sidebarMode = ref<SidebarMode>('light')
+const sidebarKey = computed(() => SIDEBAR_MODES.find((item) => item.value === sidebarMode.value)!.key)
+const palette = computed<SidebarPalette>(() => theme[sidebarKey.value])
+const sidebarFields: Array<{ key: keyof SidebarPalette; label: string; hint: string }> = [
+  { key: 'bg', label: '底色', hint: '整块导航的背景' },
+  { key: 'text', label: '菜单文字', hint: '未选中条目' },
+  { key: 'activeBg', label: '选中底色', hint: '当前页面那一条的底' },
+  { key: 'activeText', label: '选中文字', hint: '当前页面那一条的字' },
+  { key: 'activeBar', label: '强调条 / 角标', hint: '左侧细条与数量角标' },
+]
+
+/** 预览用的是同一套派生结果，和真实侧栏一像素不差。 */
+const sidebarPreview = computed<Record<string, string>>(() => sidebarTokens(palette.value))
+
 const densities: Array<{ value: UiDensity; label: string; hint: string }> = [
   { value: 'compact', label: '紧凑', hint: '信息密度高，适合监控大屏旁的后台' },
   { value: 'cozy', label: '标准', hint: '若依式默认留白' },
@@ -41,12 +70,20 @@ const densities: Array<{ value: UiDensity; label: string; hint: string }> = [
 ]
 
 function preview(): void {
-  applyTheme({ ...theme }, ui.dark)
+  applyTheme(cloneTheme(theme), ui.dark)
 }
 
 function setColor(key: keyof UiTheme, value: string | null): void {
   if (typeof value !== 'string') return
-  theme[key] = value as never
+  const previousBrand = theme.brand
+  ;(theme as unknown as Record<string, unknown>)[key] = value
+  if (key === 'brand') followBrand(theme, previousBrand)
+  preview()
+}
+
+function setSidebarColor(key: keyof SidebarPalette, value: string | null): void {
+  if (typeof value !== 'string') return
+  palette.value[key] = value
   preview()
 }
 
@@ -54,8 +91,8 @@ async function load(): Promise<void> {
   loading.value = true
   try {
     const response = await http.request<ThemeResponse>('/ui/theme')
-    Object.assign(theme, { ...DEFAULT_THEME, ...response.theme })
-    saved.value = { ...theme }
+    Object.assign(theme, cloneTheme(response.theme))
+    saved.value = cloneTheme(theme)
     preview()
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '读取主题失败')
@@ -69,9 +106,9 @@ onMounted(load)
 async function publish(): Promise<void> {
   saving.value = true
   try {
-    const next = await saveTheme(http, { ...theme })
-    Object.assign(theme, next)
-    saved.value = { ...next }
+    const next = await saveTheme(http, cloneTheme(theme))
+    Object.assign(theme, cloneTheme(next))
+    saved.value = cloneTheme(next)
     preview()
     ElMessage.success('已发布，所有人刷新后看到新外观')
   } catch (error) {
@@ -82,7 +119,7 @@ async function publish(): Promise<void> {
 }
 
 function resetAll(): void {
-  Object.assign(theme, { ...DEFAULT_THEME })
+  Object.assign(theme, defaultTheme())
   preview()
   ElMessage.info('已恢复默认外观，点「保存并发布」才会影响其他人')
 }
@@ -107,11 +144,13 @@ async function generate(): Promise<void> {
       body: JSON.stringify({ prompt, baseline: JSON.stringify(saved.value) }),
     })
     const tokens = result.tokens ?? {}
-    for (const key of Object.keys(DEFAULT_THEME) as Array<keyof UiTheme>) {
+    const previousBrand = theme.brand
+    for (const key of THEME_SCALAR_KEYS) {
       const value = tokens[key]
       if (value === undefined || value === null) continue
-      theme[key] = value as never
+      ;(theme as unknown as Record<string, unknown>)[key] = value
     }
+    followBrand(theme, previousBrand)
     preview()
     aiVisible.value = false
     ElMessage.success(`已生成预览（${result.model}），满意再保存发布`)
@@ -198,6 +237,61 @@ async function generate(): Promise<void> {
         </p>
       </section>
 
+      <section class="panel theme-sidebar">
+        <div class="panel-title">
+          <h2>侧栏调色板</h2>
+          <span>浅色 / 深色各一套；右边就是这一套的真实效果</span>
+        </div>
+        <div class="theme-sidebar__body">
+          <div class="theme-sidebar__editor">
+            <div class="theme-modes">
+              <button
+                v-for="item in SIDEBAR_MODES"
+                :key="item.value"
+                type="button"
+                class="theme-mode"
+                :class="{ 'is-active': sidebarMode === item.value }"
+                @click="sidebarMode = item.value"
+              >
+                {{ item.label }}模式
+              </button>
+            </div>
+            <div class="theme-rows">
+              <div v-for="field in sidebarFields" :key="field.key" class="theme-row">
+                <div class="theme-row__label">
+                  <span>{{ field.label }}</span>
+                  <small>{{ field.hint }}</small>
+                </div>
+                <el-input
+                  :model-value="palette[field.key]"
+                  class="theme-row__hex"
+                  @update:model-value="(value: string) => setSidebarColor(field.key, value)"
+                />
+                <el-color-picker
+                  :model-value="palette[field.key]"
+                  @update:model-value="(value: string | null) => setSidebarColor(field.key, value)"
+                />
+              </div>
+            </div>
+            <p class="theme-tip">
+              分隔线、悬停底、次要文字、角标都由这几个色算出来，不用逐个填。
+              选中条与选中文字默认跟主色走：改主色时它们一起变，手动调过之后就不再联动。
+            </p>
+          </div>
+
+          <div class="sb-demo" :style="sidebarPreview">
+            <div class="sb-demo__brand"><i class="sb-demo__logo" /><strong>微内核后台</strong></div>
+            <div class="sb-demo__group">运行监控</div>
+            <div class="sb-demo__item"><span>总览看板</span></div>
+            <div class="sb-demo__item is-active"><span>设备台账</span><b class="sb-demo__badge">12</b></div>
+            <div class="sb-demo__item"><span>画面库</span></div>
+            <div class="sb-demo__group">系统</div>
+            <div class="sb-demo__item"><span>用户与权限</span></div>
+            <div class="sb-demo__foot">v1.4.0 · 已连接</div>
+          </div>
+        </div>
+      </section>
+
       <section class="panel theme-preview">
         <div class="panel-title">
           <h2>实时预览</h2>
@@ -243,6 +337,29 @@ async function generate(): Promise<void> {
 .theme-toolbar__actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .theme-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 16px; align-items: start; }
 .theme-preview { grid-column: 1 / -1; }
+.theme-sidebar { grid-column: 1 / -1; }
+.theme-sidebar__body { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, .7fr); gap: 18px; align-items: start; }
+.theme-sidebar__editor { display: flex; flex-direction: column; gap: 12px; }
+.theme-modes { display: inline-flex; gap: 4px; padding: 3px; width: fit-content; border-radius: 10px; background: var(--surface-soft); border: 1px solid var(--line); }
+.theme-mode { padding: 5px 14px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; }
+.theme-mode.is-active { background: var(--surface); color: var(--brand); box-shadow: 0 1px 3px rgba(15, 23, 42, .12); }
+.sb-demo {
+  display: flex; flex-direction: column; gap: 2px; min-height: 248px; padding: 12px 10px 10px;
+  border-radius: 12px; border: 1px solid var(--sidebar-line);
+  background: var(--sidebar-bg); color: var(--sidebar-text);
+}
+.sb-demo__brand { display: flex; align-items: center; gap: 8px; padding: 4px 8px 12px; font-size: 13px; color: var(--sidebar-text-strong); }
+.sb-demo__logo { width: 18px; height: 18px; border-radius: 6px; background: var(--sidebar-active-bar); }
+.sb-demo__group { padding: 10px 8px 4px; font-size: 10px; letter-spacing: .08em; color: var(--sidebar-muted); }
+.sb-demo__item { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 7px 8px 7px 13px; border-radius: 8px; font-size: 12px; color: var(--sidebar-text); }
+.sb-demo__item.is-active { background: var(--sidebar-active-bg); color: var(--sidebar-active-text); }
+.sb-demo__item.is-active span { font-weight: 600; }
+.sb-demo__item.is-active::before {
+  content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px;
+  border-radius: 0 3px 3px 0; background: var(--sidebar-active-bar);
+}
+.sb-demo__badge { padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 600; background: var(--sidebar-badge-bg); color: var(--sidebar-badge-text); }
+.sb-demo__foot { margin-top: auto; padding: 10px 8px 2px; font-size: 10px; color: var(--sidebar-muted); border-top: 1px solid var(--sidebar-line); }
 .theme-rows { display: flex; flex-direction: column; gap: 10px; }
 .theme-row { display: grid; grid-template-columns: minmax(0, 1fr) 110px 34px; align-items: center; gap: 10px; }
 .theme-row__label { display: flex; flex-direction: column; gap: 2px; }
@@ -272,5 +389,5 @@ async function generate(): Promise<void> {
 .theme-preview__tr--head { background: var(--surface-soft); color: var(--muted); }
 .theme-preview__tr .ok { color: #12b76a; }
 .theme-preview__tr .warn { color: #f79009; }
-@media (max-width: 1000px) { .theme-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1000px) { .theme-grid { grid-template-columns: 1fr; } .theme-sidebar__body { grid-template-columns: 1fr; } }
 </style>

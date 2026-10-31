@@ -8,6 +8,25 @@ export const UNHANDLED = Symbol('theme-unhandled')
 
 export type UiDensity = 'compact' | 'cozy' | 'comfortable'
 
+/**
+ * 侧栏调色板：侧栏是独立的一块界面，浅色/深色各一套，不跟内容区的 surface 走。
+ *
+ * 只暴露 5 个「用户真的会调」的底色/文字/选中态，其余（分隔线、悬停底、次要文字、
+ * 角标）由前端按这 5 个算出派生令牌——所以这里不用堆二十个字段。
+ */
+export interface SidebarPalette {
+  /** 侧栏底色。 */
+  bg: string
+  /** 普通菜单文字。 */
+  text: string
+  /** 选中项背景。 */
+  activeBg: string
+  /** 选中项文字。 */
+  activeText: string
+  /** 选中项左侧强调条 / 角标底色。 */
+  activeBar: string
+}
+
 export interface UiTheme {
   /** 主色：按钮、选中态、强调线。 */
   brand: string
@@ -23,6 +42,10 @@ export interface UiTheme {
   surface: string
   text: string
   muted: string
+  /** 浅色模式下的侧栏调色板。 */
+  sidebarLight: SidebarPalette
+  /** 深色模式下的侧栏调色板。 */
+  sidebarDark: SidebarPalette
 }
 
 export const DEFAULT_THEME: UiTheme = {
@@ -35,6 +58,20 @@ export const DEFAULT_THEME: UiTheme = {
   surface: '#ffffff',
   text: '#101828',
   muted: '#667085',
+  sidebarLight: {
+    bg: '#ffffff',
+    text: '#48566e',
+    activeBg: '#e5ecfd',
+    activeText: '#2563eb',
+    activeBar: '#2563eb',
+  },
+  sidebarDark: {
+    bg: '#0f172a',
+    text: '#a9b6c9',
+    activeBg: '#1a335f',
+    activeText: '#f8fafc',
+    activeBar: '#38bdf8',
+  },
 }
 
 const THEME_PERMISSION = 'system:theme:config'
@@ -56,6 +93,17 @@ function color(value: unknown, fallback: string): string {
   return /^#[0-9a-fA-F]{6}$/.test(text) ? text : fallback
 }
 
+function palette(value: unknown, base: SidebarPalette): SidebarPalette {
+  const raw = (typeof value === 'object' && value !== null ? value : {}) as Partial<SidebarPalette>
+  return {
+    bg: color(raw.bg, base.bg),
+    text: color(raw.text, base.text),
+    activeBg: color(raw.activeBg, base.activeBg),
+    activeText: color(raw.activeText, base.activeText),
+    activeBar: color(raw.activeBar, base.activeBar),
+  }
+}
+
 /** 把任意输入收敛成合法主题：非法字段回落到默认值，而不是整份拒绝。 */
 export function normalizeTheme(input: unknown, base: UiTheme = DEFAULT_THEME): UiTheme {
   const raw = (typeof input === 'object' && input !== null ? input : {}) as Partial<UiTheme>
@@ -70,6 +118,9 @@ export function normalizeTheme(input: unknown, base: UiTheme = DEFAULT_THEME): U
     surface: color(raw.surface, base.surface),
     text: color(raw.text, base.text),
     muted: color(raw.muted, base.muted),
+    // 老数据没有侧栏字段时整块回落出厂调色板，不需要迁移脚本。
+    sidebarLight: palette(raw.sidebarLight, base.sidebarLight),
+    sidebarDark: palette(raw.sidebarDark, base.sidebarDark),
   }
 }
 
